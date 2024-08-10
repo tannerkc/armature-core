@@ -6,6 +6,8 @@
     "module": "ESNext",
     "moduleDetection": "force",
     "jsx": "preserve",
+    "jsxFactory": "h",
+    "jsxImportSource": "framework",
     "allowJs": true,
 
     // Bundler mode
