@@ -4,6 +4,7 @@
   "module": "index.ts",
   "type": "module",
   "scripts": {
+    "dev": "bun run --watch ./src/server/index.ts",
     "build": "swc src -d dist"
   },
   "devDependencies": {
