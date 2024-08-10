@@ -1,0 +1,22 @@
+{
+  "name": "framework",
+  "version": "0.1.0",
+  "module": "index.ts",
+  "type": "module",
+  "scripts": {
+    "build": "swc src -d dist"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^22.2.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5.5.4"
+  },
+  "dependencies": {
+    "@swc/cli": "^0.4.0",
+    "@swc/core": "^1.7.10",
+    "elysia": "^1.1.5",
+    "vite": "^5.4.0"
+  }
+}
