@@ -36,12 +36,9 @@ async function createServer() {
 
   // TODO: fix middlewares
 
-  app.use((req, res, next) => {
-    console.log(`Incoming request: ${req.url}`);
-    next();
-  });
+  
 
-  app.use(vite.middlewares as any);
+  app.use(vite as any);
 
   // API routes
 //   app.get('/api/*', async (c) => {
