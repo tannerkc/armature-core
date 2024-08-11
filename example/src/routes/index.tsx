@@ -1,17 +1,27 @@
 import Reactive from 'framework'
 function index() {
   return (
-    <>
-        <h1>Welcome to Reactive!</h1>
-        <p>This is app was generated using generate-reactive-app.</p>
-        <button onclick={() => alert('Clicked!')}>Click me</button>
-        <div>
-            <h2 class="header">Testing nested children</h2>
-            <p>these h2 and p tags live in a nested div</p>
-            <div>this is a thrice nested div</div>
-            <p style="color: red">testing style attribute</p>
-        </div>
-    </>
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", justifyContent: "space-between"}}>
+      <header>
+        <h1>Welcome to Reactive</h1>
+      </header>
+
+      <main>
+        <p>
+          This app was generated using <code>generate-reactive-app</code>.
+        </p>
+        <button>Get Started</button>
+        <section className="mt-2">
+          <h3>Features</h3>
+          <p>
+            Explore our features and see what makes us stand out. 
+          </p>
+        </section>
+      </main>
+      <footer>
+        <p>&copy; 2024 Tanner Cottle. All rights reserved.</p>
+      </footer>
+    </div>
   )
 }
 

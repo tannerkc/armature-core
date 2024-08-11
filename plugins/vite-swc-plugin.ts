@@ -6,6 +6,16 @@ export default function swcPlugin(): Plugin {
     name: 'vite-plugin-swc',
     enforce: 'pre',
     async transform(code: string, id: string) {
+        if (id.endsWith('.css')) {
+            // For CSS files, just read the file and return its content
+            const cssFile = await Bun.file(id);
+            const cssContent = await cssFile.text()
+            return {
+              code: cssContent,
+              map: null
+            };
+        }
+
         if (!/\.(t|j)sx?$/.test(id)) return null;
 
         // Inject HMR code

@@ -5,5 +5,9 @@ export default defineConfig({
     jsxFactory: 'h',
     jsxFragment: 'Fragment',
     jsxInject: `import Reactive from 'framework'`
-  }
+  },
+  css: {
+    // This will make Vite process CSS files
+    postcss: {},
+  },
 });
