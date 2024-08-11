@@ -1,9 +1,17 @@
 import { type Plugin } from 'vite';
 import * as swc from '@swc/core';
+import { edenTreaty, edenFetch } from '@elysiajs/eden';
+import type { App } from '../src/server';
+import path from 'path';
 
 export default function swcPlugin(): Plugin {
+  let appConfig: any;
   return {
     name: 'vite-plugin-swc',
+    configureServer(server) {
+      const configPath = path.join(process.cwd(), 'example', 'app.config.ts');
+      appConfig = require(configPath).default;
+    },
     enforce: 'pre',
     async transform(code: string, id: string) {
       // Handle CSS files
@@ -18,6 +26,13 @@ export default function swcPlugin(): Plugin {
 
       // Only process JavaScript and TypeScript files
       if (!/\.(t|j)sx?$/.test(id)) return null;
+
+      // Inject Eden objects 
+      const injectEdenObjects = `
+        window.__APP_CONFIG__ = ${JSON.stringify(appConfig)};
+        window.server = ${edenTreaty}<App>(window.__APP_CONFIG__.server.url);
+        window.serverFetch = ${edenFetch}<App>(window.__APP_CONFIG__.server.url);
+      `;
 
       // Inject HMR code
       const hmrCode = `
@@ -36,7 +51,7 @@ export default function swcPlugin(): Plugin {
       `;
 
       // Combine the original code with our injections
-      const enhancedCode = `${code}\n${hmrCode}`;
+      const enhancedCode = `${injectEdenObjects}\n${code}\n${hmrCode}`;
       const isTypeScript = id.endsWith('.ts') || id.endsWith('.tsx');
       const syntax = isTypeScript ? 'typescript' : 'ecmascript';
       const isTSX = id.endsWith('.tsx');

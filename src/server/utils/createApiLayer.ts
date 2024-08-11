@@ -12,6 +12,7 @@ export function createApiLayer(apiDir: string) {
 
     // Dynamically import the module
     const apiModule = require(modulePath);
+    console.log(apiModule)
 
     // Register handlers for each HTTP method
     Object.keys(apiModule).forEach(method => {
