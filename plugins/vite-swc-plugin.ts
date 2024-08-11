@@ -30,8 +30,8 @@ export default function swcPlugin(): Plugin {
       // Inject Eden objects 
       const injectEdenObjects = `
         window.__APP_CONFIG__ = ${JSON.stringify(appConfig)};
-        window.server = ${edenTreaty}<App>(window.__APP_CONFIG__.server.url);
-        window.serverFetch = ${edenFetch}<App>(window.__APP_CONFIG__.server.url);
+        window.server = ${edenTreaty(appConfig.server.url)};
+        window.serverFetch = ${edenFetch(appConfig.server.url)};
       `;
 
       // Inject HMR code
