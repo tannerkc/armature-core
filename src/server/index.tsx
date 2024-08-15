@@ -1,11 +1,13 @@
 import { Elysia } from 'elysia';
-import path from 'path';
+import path, { join } from 'path';
 import fs from 'fs/promises'
 import { createStaticMiddleware } from './middleware/staticMiddleware';
 import { watchCSS } from './utils/cssWatcher';
 import type { IncomingMessage, ServerResponse } from 'http';
 import { createClientLayer } from './layers/createClientLayer';
 import { log } from '..';
+import {html} from '@elysiajs/html';
+import { renderJSX, RenderedNode } from 'jsx-to-html-runtime';
 
 // TODO: remove example
 const publicFolder = path.join(process.cwd(), 'example', 'public')
@@ -165,9 +167,75 @@ async function createServer() {
 //   });
 
   // Client-side routes
-  
+
+
+
   app.get('*', async (c) => {
-    return createClientLayer(c)
+    try {
+      const url = new URL(c.request.url);
+
+      const htmlFile = Bun.file('./example/public/index.html');
+      let html: string = await htmlFile.text();
+
+      const clientPath = join(import.meta.dir, 'layers', 'client.ts')
+      const clientFile = Bun.file(clientPath);
+      let client: string = await clientFile.text();
+  
+      const routePath = path.join(process.cwd(), 'example', 'src', 'routes', url.pathname)
+      const { default: RouteComponent } = await import(routePath);
+
+      const compilePath = path.join(process.cwd(), 'example', '.armature', 'routes', url.pathname)
+
+      client = client.replace('"Route"', `${RouteComponent}`)
+
+      console.log(client);
+
+      `import { renderJSX, RenderedNode } from 'jsx-to-html-runtime';
+
+function hydrate(element: RenderedNode, container: HTMLElement | null) {
+  if (container) {
+    container.innerHTML = element.string;
+  }
+}
+
+const appElement = renderJSX("Route", {});
+hydrate(appElement, document.querySelector('div[app]'));`
+
+      const js = await Bun.build({
+        entrypoints: [clientPath],
+        // entrypoints: [routePath],
+        minify: true,
+        outdir: compilePath
+      });
+
+      const result = await js.outputs[0].text();
+      const finalHtml = html.replace('<div app></div>', `<div app></div><script>${result} window.addEventListener('error', (event) => {
+        console.error('Global error caught:', event.error);
+        const appContainer = document.querySelector('div[app]');
+        if (appContainer) {
+            appContainer.innerHTML = '<p>An error occurred. Please try refreshing the page.</p>';
+        }
+    });</script>`);
+      return new Response(finalHtml, {
+        headers: { 'Content-Type': 'text/html' }
+      });
+
+      // const appElement = renderJSX(RouteComponent, {});
+      // const appHtml = renderToString(appElement);
+      // const finalHtml = html.replace('<div app></div>', `<div app>${appHtml}</div><script>window.addEventListener('error', (event) => {
+      //               console.error('Global error caught:', event.error);
+      //               const appContainer = document.querySelector('div[app]');
+      //               if (appContainer) {
+      //                   appContainer.innerHTML = '<p>An error occurred. Please try refreshing the page.</p>';
+      //               }
+      //           });</script>`);
+
+      return new Response(finalHtml, {
+        headers: { 'Content-Type': 'text/html' },
+      });
+    } catch (error: any) {
+      log.error(error.message)
+    }
   }, {
     beforeHandle: staticPlugin
   });
@@ -176,7 +244,11 @@ async function createServer() {
   app.listen(port);
 
   log.gen(`App running at ${config?.server?.url}`);
-  log.gen(`Happy Developing!`);
+//   log.gen(`Happy Developing!`);
+}
+
+function renderToString(element: RenderedNode): string {
+  return element.string;
 }
 
 createServer();

@@ -1,7 +1,7 @@
-import Reactive from 'framework'
+import HelloWorld from "../../components/HelloWorld"
 import './about.css'
-import HelloWorld from '../../components/HelloWorld'
-function index() {
+export default () => {
+  
   return (
     <div>
         <h1>About page!</h1>
@@ -9,5 +9,3 @@ function index() {
     </div>
   )
 }
-
-export default index

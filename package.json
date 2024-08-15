@@ -1,10 +1,10 @@
 {
-  "name": "framework",
+  "name": "armature-core",
   "version": "0.1.0",
   "module": "index.ts",
   "type": "module",
   "scripts": {
-    "dev": "bun run --watch ./src/server/index.ts",
+    "dev": "bun run --watch ./src/server/index.tsx",
     "build": "swc src -d dist"
   },
   "devDependencies": {
@@ -17,12 +17,14 @@
   },
   "dependencies": {
     "@elysiajs/eden": "^1.1.2",
+    "@elysiajs/html": "1.0.0",
     "@elysiajs/static": "^1.1.0",
     "@swc/cli": "^0.4.0",
     "@swc/core": "^1.7.10",
     "chalk": "^5.3.0",
     "chokidar": "^3.6.0",
     "elysia": "^1.1.5",
+    "jsx-to-html-runtime": "1.0.3",
     "terser": "^5.31.5",
     "vite": "^5.4.0"
   }

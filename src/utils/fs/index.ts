@@ -1,5 +1,5 @@
 import fs from 'fs';
-export function isDirectory(path) {
+export function isDirectory(path: fs.PathLike) {
     try {
       return fs.statSync(path).isDirectory();
     } catch (err) {
@@ -7,7 +7,7 @@ export function isDirectory(path) {
     }
 }
   
-export function isFile(path) {
+export function isFile(path: fs.PathLike) {
     try {
         return fs.statSync(path).isFile();
     } catch (err) {

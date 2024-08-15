@@ -1,7 +1,8 @@
 {
     "compilerOptions": {
+      "target": "ESNext",
+      "module": "ESNext",
       "jsx": "preserve",
-      "jsxFactory": "h",
-      "jsxImportSource": "framework"
+      "jsxImportSource": "framework/src"
     }
 }
