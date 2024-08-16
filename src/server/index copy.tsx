@@ -103,6 +103,73 @@ async function createServer() {
         return app
     });
 
+
+  // API routes
+//   app.get('/api/*', async (c) => {
+//     const method = c.request.method
+//     const url = new URL(c.request.url);
+//     const apiPath = path.join(process.cwd(), 'example', 'src', 'api', url.pathname.slice(5));
+    
+//     try {
+//       const apiModule = await import(apiPath);
+//       const handler = apiModule[method];
+//       return await handler(c);
+//     } catch (error) {
+//       console.error('API Error:', error);
+//       return new Response('Internal Server Error', { status: 500 });
+//     }
+//   });
+
+
+  // Client-side routes
+//   app.get('*', async ({ request }) => {
+//     // const url = new URL(request.url);
+//     // let html = await fs.readFile(path.resolve(process.cwd(), 'example', 'index.html'), 'utf-8');
+
+//     const url = new URL(request.url);
+//     const routePath = path.join(process.cwd(), 'example', 'src', 'routes', url.pathname); // TODO: remove example
+
+//     const htmlFile: BunFile = await Bun.file('./example/public/index.html');
+//     let html: string = await htmlFile.text();
+
+//     if (!isProduction) {
+//       // In development, use Vite to transform the HTML
+//       html = await vite.transformIndexHtml(url.pathname, html);
+//     }
+
+//     try {
+//       let template: any = html;
+//       let render;
+
+//       if (!isProduction) {
+//         // In development, load the server entry module
+//         render = (await vite.ssrLoadModule('/src/entry/client.ts')).render;
+//       } else {
+//         // In production, use the built files
+//         // template = await fs.readFile(path.resolve(process.cwd(), 'dist', 'client', 'index.html'), 'utf-8');
+//         // render = (await import('./dist/server/entry-server.js')).render;
+//       }
+
+//       const appHtml = await render(url.pathname);
+
+//       const finalHtml = template.replace(`<!-- injection point -->`, appHtml);
+
+//       return new Response(finalHtml, {
+//         headers: { 'Content-Type': 'text/html' },
+//       });
+//     } catch (e: any) {
+//       if (!isProduction) {
+//         vite.ssrFixStacktrace(e);
+//       }
+//       console.error(e);
+//       return new Response('Internal Server Error', { status: 500 });
+//     }
+//   });
+
+  // Client-side routes
+
+
+
   app.get('*', async (c) => {
     try {
       const url = new URL(c.request.url);
@@ -115,32 +182,46 @@ async function createServer() {
       let client: string = await clientFile.text();
   
       const routePath = path.join(process.cwd(), 'example', 'src', 'routes', url.pathname)
-      const { default: RouteComponent } = await import(routePath);
+      // const { default: RouteComponent } = await import(routePath);
 
       const compilePath = path.join(process.cwd(), 'example', '.armature', 'routes', url.pathname)
 
+      let RouteComponent;
+      try {
+        const module = await import(routePath);
+        RouteComponent = module.default;
+      } catch (error) {
+        console.error(`Failed to load route component for ${url.pathname}:`, error);
+        return new Response('Not Found', { status: 404 });
+      }
+    
+      // Render the component to string
+      const renderedComponent = renderJSX(RouteComponent, {}) as RenderedNode;
+      const componentString = renderedComponent.string;
+    
+      // Inject the component and its path into the client code
       const injectedClientCode = client
-      .replace('/* INJECT_COMPONENT */', `import RouteComponent from '${routePath}';`)
-      .replace('/* INJECT_RENDER */', `hydrate(RouteComponent, document.querySelector('div[app]'));`);
-  
+        .replace('/* INJECT_COMPONENT */', `import RouteComponent from '${routePath}';`)
+        .replace('/* INJECT_RENDER */', `hydrate(RouteComponent, document.querySelector('div[app]'));`);
+    
       const tempClientPath = join(process.cwd(), 'example', '.armature', '.temp', 'client.ts')
       await Bun.write(tempClientPath, injectedClientCode)
-
+      // Build the client code
       const js = await Bun.build({
         entrypoints: [tempClientPath],
-        minify: true,
-        outdir: compilePath,
-        splitting: true,
-        sourcemap: 'linked',
+        // minify: true,
+        outdir: compilePath
       });
+      console.log(js)
 
       if(!js.success) return new Response('Not Found', { status: 404 })
     
       const result = await js.outputs[0].text();
-  
+
       for (const output of js.outputs) {
         if (output.kind === "entry-point") {
           const finalHtml = html
+          // .replace('<div app></div>', `<div app>${componentString}</div>`)
           .replace('</body>', `<script>${result}</script><script>
             window.addEventListener('error', (event) => {
               console.error('Global error caught:', event.error);
@@ -159,6 +240,23 @@ async function createServer() {
           return new Response(Bun.file(output.path))
         }
       }
+    
+      // Inject the server-rendered component and client-side code into the HTML
+      // const finalHtml = html
+      //   .replace('<div app></div>', `<div app>${componentString}</div>`)
+      //   .replace('</body>', `<script>${result}</script><script>
+      //     window.addEventListener('error', (event) => {
+      //       console.error('Global error caught:', event.error);
+      //       const appContainer = document.querySelector('div[app]');
+      //       if (appContainer) {
+      //         appContainer.innerHTML = '<p>An error occurred. Please try refreshing the page.</p>';
+      //       }
+      //     });
+      //   </script></body>`);
+    
+      // return new Response(finalHtml, {
+      //   headers: { 'Content-Type': 'text/html' }
+      // });
     } catch (error: any) {
       log.error(error.message)
     }

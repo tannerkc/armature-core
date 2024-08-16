@@ -1,11 +1,15 @@
-import { renderJSX, RenderedNode } from 'jsx-to-html-runtime';
-import App from '../../../example/src/routes/index';
+/* INJECT_COMPONENT */
 
-function hydrate(element: RenderedNode, container: HTMLElement | null) {
+function hydrate(element: any, container: HTMLElement) {
   if (container) {
-    container.innerHTML = element.string;
+    container.innerHTML = element().string;
   }
 }
 
-const appElement = renderJSX(App, {});
-hydrate(appElement, document.querySelector('div[app]'));
+try {
+    /* INJECT_RENDER */
+} catch (error) {
+    console.log(error)
+}
+
+

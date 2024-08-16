@@ -3,7 +3,7 @@ import Logger from "./lib/logger";
 import { createServer as createViteServer } from 'vite';
 
 export const log = new Logger({
-    prefix: '[reactive]',
+    prefix: '[armature]',
     usePrefix: true,
     colors: {
       base: 'white',

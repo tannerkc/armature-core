@@ -30,7 +30,7 @@ class Logger {
       error: 'red',
       debug: 'green',
     };
-    this.prefix = chalk.magenta('[reactive]');
+    this.prefix = chalk.magenta('[armature]');
   }
 
   private highlightUrls(message: string): string {

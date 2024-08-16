@@ -1,1 +1,154 @@
-var g=(r)=>{return r.replaceAll("&","&amp;").replaceAll('"',"&quot;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll("\n","&#10;").trim()},h=(r)=>{return r.replaceAll("&","&amp;").replaceAll('"',"&quot;").replaceAll("'","&#39;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll("\n","<br/>").trim()};class l{string;constructor(r){this.string=r}}class A extends Error{invalidValue;constructor(r){super("Invalid value");this.invalidValue=r}}var a=(r,t)=>{if(r===null||r===void 0)return"";if(typeof r==="string")return t(r);if(typeof r==="number"||typeof r==="bigint")return r.toString();if(typeof r==="boolean")return r?"true":"false";if(typeof r==="function")return a(r(),t);if(r instanceof l)return r.string;if(typeof r==="object"&&"htmlContent"in r&&typeof r.htmlContent==="string")return r.htmlContent;throw new A(r)},f=new WeakMap,x=(r)=>{if(f.has(r))return f.get(r);const t=Object.entries(r).filter(([n])=>n!=="children").map(([n,s])=>`${n}="${a(s,g)}"`).join(" ");return f.set(r,t),t},m=(r)=>{const{children:t}=r;if(!t)return"";return(Array.isArray(t)?t:[t]).map((n)=>a(n,h)).join("")},y=(r,t,n)=>{const s=`${r} ${t}`.trim();return n?`<${s}>${n}</${r}>`:`<${s}/>`},u=new WeakMap,o=(r,t,n)=>{if(typeof r==="function"){let i=u.get(r);if(!i)i=new WeakMap,u.set(r,i);if(i.has(t))return i.get(t);const p=r(t);return i.set(t,p),p}if(r===void 0)return new l(m(t));const s=x(t),c=m(t);return new l(y(r,s,c))};var e=o,w=String.raw,C=String.raw,V=String.raw;var j=()=>{let r="Tanner";console.log(9);const n=fetch("/api").then(async(s)=>{let c=await s.json();console.log(c)});return e("div",{style:"display: flex; flex-direction: column; height: 100vh; justify-content: space-between;",children:[e("header",{id:"id",children:e("h1",{children:["Welcome, ",r,", to Reactive"]},void 0,!0,void 0,this)},void 0,!1,void 0,this),e("main",{children:[e("p",{children:["This app was generated using ",e("code",{children:"generate-reactive-app"},void 0,!1,void 0,this),"."]},void 0,!0,void 0,this),e("button",{children:"Get Started"},void 0,!1,void 0,this),e("section",{className:"mt-2",children:[e("h3",{children:"Features"},void 0,!1,void 0,this),e("p",{children:"Explore our features and see what makes us stand out."},void 0,!1,void 0,this)]},void 0,!0,void 0,this)]},void 0,!0,void 0,this),e("footer",{children:e("p",{children:"\xA9 2024 Tanner Cottle. All rights reserved."},void 0,!1,void 0,this)},void 0,!1,void 0,this)]},void 0,!0,void 0,this)};function $(r,t){if(t)t.innerHTML=r.string}var b=o(j,{});$(b,document.querySelector("div[app]"));
+// node_modules/jsx-to-html-runtime/dist/index.js
+var escapeProp = (value) => {
+  return value.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll("\n", "&#10;").trim();
+};
+var escapeHTML = (value) => {
+  return value.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("'", "&#39;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll("\n", "<br/>").trim();
+};
+
+class RenderedNode {
+  string;
+  constructor(string) {
+    this.string = string;
+  }
+}
+
+class SerializationError extends Error {
+  invalidValue;
+  constructor(invalidValue) {
+    super("Invalid value");
+    this.invalidValue = invalidValue;
+  }
+}
+var serialize = (value, escaper) => {
+  if (value === null || value === undefined)
+    return "";
+  if (typeof value === "string")
+    return escaper(value);
+  if (typeof value === "number" || typeof value === "bigint")
+    return value.toString();
+  if (typeof value === "boolean")
+    return value ? "true" : "false";
+  if (typeof value === "function")
+    return serialize(value(), escaper);
+  if (value instanceof RenderedNode)
+    return value.string;
+  if (typeof value === "object" && "htmlContent" in value && typeof value.htmlContent === "string") {
+    return value.htmlContent;
+  }
+  throw new SerializationError(value);
+};
+var memoizedRenderAttributes = new WeakMap;
+var renderAttributes = (attributes) => {
+  if (memoizedRenderAttributes.has(attributes)) {
+    return memoizedRenderAttributes.get(attributes);
+  }
+  const result = Object.entries(attributes).filter(([key]) => key !== "children").map(([key, value]) => `${key}="${serialize(value, escapeProp)}"`).join(" ");
+  memoizedRenderAttributes.set(attributes, result);
+  return result;
+};
+var renderChildren = (attributes) => {
+  const { children } = attributes;
+  if (!children)
+    return "";
+  return (Array.isArray(children) ? children : [children]).map((child) => serialize(child, escapeHTML)).join("");
+};
+var renderTag = (tag, attributes, children) => {
+  const tagWithAttributes = `${tag} ${attributes}`.trim();
+  return children ? `<${tagWithAttributes}>${children}</${tag}>` : `<${tagWithAttributes}/>`;
+};
+var memoizedComponents = new WeakMap;
+var renderJSX = (tag, props, _key) => {
+  if (typeof tag === "function") {
+    let componentCache = memoizedComponents.get(tag);
+    if (!componentCache) {
+      componentCache = new WeakMap;
+      memoizedComponents.set(tag, componentCache);
+    }
+    if (componentCache.has(props)) {
+      return componentCache.get(props);
+    }
+    const result = tag(props);
+    componentCache.set(props, result);
+    return result;
+  }
+  if (tag === undefined) {
+    return new RenderedNode(renderChildren(props));
+  }
+  const attributes = renderAttributes(props);
+  const children = renderChildren(props);
+  return new RenderedNode(renderTag(tag, attributes, children));
+};
+var jsxDEV = renderJSX;
+var css = String.raw;
+var html = String.raw;
+var sql = String.raw;
+// example/src/routes/index.tsx
+var routes_default = () => {
+  let name = "Tanner";
+  let num = 9;
+  console.log(num);
+  const result = fetch("/api").then(async (data) => {
+    let r = await data.json();
+    console.log(r);
+  });
+  return jsxDEV("div", {
+    style: "display: flex; flex-direction: column; height: 100vh; justify-content: space-between;",
+    children: [
+      jsxDEV("header", {
+        id: "id",
+        children: jsxDEV("h1", {
+          children: [
+            "Welcome, ",
+            name,
+            ", to Reactive"
+          ]
+        }, undefined, true, undefined, this)
+      }, undefined, false, undefined, this),
+      jsxDEV("main", {
+        children: [
+          jsxDEV("p", {
+            children: [
+              "This app was generated using ",
+              jsxDEV("code", {
+                children: "generate-reactive-app"
+              }, undefined, false, undefined, this),
+              "."
+            ]
+          }, undefined, true, undefined, this),
+          jsxDEV("button", {
+            children: "Get Started"
+          }, undefined, false, undefined, this),
+          jsxDEV("section", {
+            className: "mt-2",
+            children: [
+              jsxDEV("h3", {
+                children: "Features"
+              }, undefined, false, undefined, this),
+              jsxDEV("p", {
+                children: "Explore our features and see what makes us stand out."
+              }, undefined, false, undefined, this)
+            ]
+          }, undefined, true, undefined, this)
+        ]
+      }, undefined, true, undefined, this),
+      jsxDEV("footer", {
+        children: jsxDEV("p", {
+          children: "\xA9 2024 Tanner Cottle. All rights reserved."
+        }, undefined, false, undefined, this)
+      }, undefined, false, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+};
+
+// example/.armature/.temp/client.ts
+function hydrate(element, container) {
+  if (container) {
+    container.innerHTML = element().string;
+  }
+}
+try {
+  hydrate(routes_default, document.querySelector("div[app]"));
+} catch (error) {
+  console.log(error);
+}
