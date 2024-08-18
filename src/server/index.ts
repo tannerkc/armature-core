@@ -1,22 +1,24 @@
 import { Elysia } from 'elysia';
-import path, { join } from 'path';
+import { swagger } from '@elysiajs/swagger'
+import { jwt } from '@elysiajs/jwt'
+import { join } from 'path';
 import fs from 'fs/promises'
 import { createStaticMiddleware } from './middleware/staticMiddleware';
-import { log } from '..';
-import { RenderedNode } from 'jsx-to-html-runtime';
-import { existsSync } from 'fs';
-import sveltePlugin from './plugins/sveltePlugin';
-import clientPlugin from './plugins/clientPlugin';
+import { debug, log } from '..';
 import { handleClientRequest } from './layers/client';
+import { getJWTconfig } from 'src/api';
+import { config } from 'index';
 
-const publicFolder = path.join(process.cwd(), 'public')
-const apiDir = path.join(process.cwd(), 'src', 'api');
-const configPath = path.join(process.cwd(), 'app.config.ts');
-const configImport = existsSync(configPath) && await import(configPath)
-const config = configImport?.default;
+const publicFolder = join(process.cwd(), 'public')
+const apiDir = join(process.cwd(), 'src', 'api');
 
+const jwtConfig = config.jwt || getJWTconfig()
 
 const app = new Elysia();
+
+app.use(swagger())
+if (jwtConfig.name && jwtConfig.secret) app.use(jwt(jwtConfig))
+
 export async function createServer() {
     const staticPlugin = createStaticMiddleware(publicFolder)
 
@@ -25,7 +27,7 @@ export async function createServer() {
     const apiMap = new Map()
 
     for (const file of apiFiles) {
-        const filePath = path.join(apiDir, file);
+        const filePath = join(apiDir, file);
         const routePath = `/${file.replace('index.ts', '')}`;
         const apiModule = await import(filePath);
 
@@ -34,18 +36,38 @@ export async function createServer() {
 
     app.group('/api', (app) => {
         for (const [routePath, handlers] of apiMap.entries()) {
-            if (handlers.GET) {
-                app.get(routePath, handlers.GET);
-            }
-            if (handlers.POST) {
-                app.post(routePath, handlers.POST);
-            }
-            if (handlers.DELETE) {
-                app.delete(routePath, handlers.DELETE);
-            }
-            if (handlers.PUT) {
-                app.put(routePath, handlers.PUT);
-            }
+          // for (const method of Object.keys(handlers)) {
+          //   const handler = handlers[method];
+          //   app[method.toLowerCase()](routePath, typeof handler === "function" ? handler : handler.handler, {
+          //     ...handler.document
+          //   });
+          // }
+
+          
+          if (handlers.GET) {
+            const handler = handlers.GET
+            app.get(routePath, typeof handler === "function" ? handler : handler.handler, {
+              ...handler.document
+            });
+          }
+          if (handlers.POST) {
+            const handler = handlers.POST
+            app.post(routePath, typeof handler === "function" ? handler : handler.handler, {
+              ...handler.document
+            });
+          }
+          if (handlers.DELETE) {
+            const handler = handlers.DELETE
+            app.delete(routePath, typeof handler === "function" ? handler : handler.handler, {
+              ...handler.document
+            });
+          }
+          if (handlers.PUT) {
+            const handler = handlers.PUT
+            app.put(routePath, typeof handler === "function" ? handler : handler.handler, {
+              ...handler.document
+            });
+          }
         }
         return app
     });
@@ -59,13 +81,8 @@ export async function createServer() {
   const port = new URL(config?.server?.url)?.port || 3000;
   app.listen(port);
 
-  log.gen(`App running at ${config?.server?.url}`);
-//   log.gen(`Happy Developing!`);
+  log.gen(`App running at ${app.server!.url.origin}\n`);
+  log.info(`Automatic documention for your API layer will be generated at: \n${app.server!.url.origin}/swagger`);
 }
 
-function renderToString(element: RenderedNode): string {
-  return element.string;
-}
-
-// createServer();
 export type App = typeof app;

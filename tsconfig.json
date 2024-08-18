@@ -30,9 +30,9 @@
     "outDir": "./dist",
     "rootDir": "./",
     "baseUrl": ".",
-    "paths": {
-      "@app/*": ["src/*"]
-    },
+    // "paths": {
+    //   "@app/*": ["src/*"]
+    // },
 
     "jsx": "react-jsx",
     "jsxImportSource": "jsx-to-html-runtime",

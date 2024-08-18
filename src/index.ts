@@ -1,6 +1,4 @@
-// import swcPlugin from "../plugins/vite-swc-plugin";
 import Logger from "./lib/logger";
-import { createServer as createViteServer } from 'vite';
 
 export const log = new Logger({
     prefix: '[armature]',
@@ -14,10 +12,7 @@ export const log = new Logger({
     },
 });
 
-export const isProduction = process.env.NODE_ENV === 'production'
+import debug from "./utils/debug"
+export { debug }
 
-// export const vite = await createViteServer({
-//     server: { middlewareMode: true },
-//     appType: 'custom',
-//     plugins: [swcPlugin()]
-// })
+export const isProduction = process.env.NODE_ENV === 'production'

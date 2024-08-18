@@ -32,4 +32,7 @@ export const serverFetch = edenFetch(config.server.url)
 
 export { onMount } from './src/lifecycle/mount'
 
+import debug from "./src/utils/debug"
+export { debug }
+
 export default Armature
