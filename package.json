@@ -15,7 +15,7 @@
   "scripts": {
     "dev": "bun run --watch ./src/server/index.ts",
     "start": "bun run src/cli/index.ts dev",
-    "build": "swc ./src -d dist && tsc --emitDeclarationOnly --outDir dist && chmod +x dist/src/cli/index.js",
+    "build": "swc . -d dist --ignore dist,node_modules,plugins && tsc --emitDeclarationOnly --outDir dist && chmod +x dist/src/cli/index.js",
     "prepublishOnly": "bun run build"
   },
   "devDependencies": {

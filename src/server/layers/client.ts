@@ -5,12 +5,7 @@ import { join } from "path";
 import clientPlugin from "../plugins/clientPlugin";
 import sveltePlugin from "../plugins/sveltePlugin";
 import { minifySync } from "@swc/core";
-
-const publicFolder = join(process.cwd(), 'public')
-const apiDir = join(process.cwd(), 'src', 'api');
-const configPath = join(process.cwd(), 'app.config.ts');
-const configImport = existsSync(configPath) && await import(configPath)
-const config = configImport?.default;
+import { config } from "../../../index";
 
 export const handleClientRequest = async (c: any) => {
   try {
