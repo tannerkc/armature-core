@@ -1,7 +1,7 @@
 import { minify } from '@swc/core';
 import { randomUUID } from 'crypto';
 import path from 'path';
-import { isProduction, log, vite } from '../..';
+import { isProduction, log } from '../..';
 
 const transpiler = new Bun.Transpiler({
     loader: 'tsx',
@@ -10,16 +10,16 @@ const transpiler = new Bun.Transpiler({
             jsx: 'react',
             jsxFactory: 'createElement',
             jsxFragmentFactory: 'Fragment',
-            jsxImportSource: '../../jsx/jsx-runtime',
+            jsxImportSource: 'jsx-to-html-runtime',
         }
     }
 });
 
 export const createClientLayer = async (c: { request: { url: string | URL; }; }) => {
     const url = new URL(c.request.url);
-    const routePath = path.join(process.cwd(), 'example', 'src', 'routes', url.pathname);
+    const routePath = path.join(process.cwd(), 'src', 'routes', url.pathname);
 
-    const htmlFile = Bun.file('./example/public/index.html');
+    const htmlFile = Bun.file('./public/index.html');
     let html: string = await htmlFile.text();
 
     try {
@@ -108,7 +108,7 @@ export const createClientLayer = async (c: { request: { url: string | URL; }; })
     } catch (e: any) {
         log.error('Error handling route:\n'+ e);
         if (!isProduction) {
-            vite.ssrFixStacktrace(e);
+            // vite.ssrFixStacktrace(e);
         }
         return new Response('Not Found', { status: 404 });
     }

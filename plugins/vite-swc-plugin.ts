@@ -9,7 +9,7 @@ export default function swcPlugin(): Plugin {
   return {
     name: 'vite-plugin-swc',
     configureServer(server) {
-      const configPath = path.join(process.cwd(), 'example', 'app.config.ts');
+      const configPath = path.join(process.cwd(), 'app.config.ts');
       appConfig = require(configPath).default;
     },
     enforce: 'pre',

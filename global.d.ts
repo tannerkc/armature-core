@@ -13,4 +13,10 @@ declare global {
   const __APP_CONFIG__: Window['__APP_CONFIG__'];
 
   const onMount: typeof import('./src/lifecycle/mount').onMount;
+
+  export namespace JSX {
+    export interface IntrinsicElements {
+        [elemName: string]: any;
+    }
+  }
 }

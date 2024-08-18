@@ -176,3 +176,7 @@ dist
 
 
 /example
+src
+tsconfig.json
+.gitignore
+.swcrc

@@ -3,11 +3,10 @@ import { join } from "path";
 // import Fragment from "./src/jsx/Fragement"
 // import h from "./src/jsx/h"
 // import { createElement } from './src/jsx/jsx-runtime' 
-export { jsx, jsxs, jsxDEV } from 'jsx-to-html-runtime'
+export { jsx, jsxs, jsxDEV, type JSX } from 'jsx-to-html-runtime'
 
 // export { Fragment, createElement }
-// TODO: remove example
-const configPath = join(process.cwd(), 'example', 'app.config.ts');
+const configPath = join(process.cwd(), 'app.config.ts');
 const config = await import(configPath);
 
 const Armature = {

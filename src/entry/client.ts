@@ -2,7 +2,7 @@ import { createElement, appendChild } from '../jsx/jsx-runtime';
 
 export async function render(url: string) {
   try {
-    const { default: App } = await import('../../example/src/routes' + url);
+    const { default: App } = await import('../../src/routes' + url);
     const app = createElement(App, {});
     return app.outerHTML;
   } catch (error) {

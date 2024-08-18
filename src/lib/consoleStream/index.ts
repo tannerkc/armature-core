@@ -1,3 +1,4 @@
+// @ts-nocheck
 const tips = [
     "Remember to keep your code DRY (Don't Repeat Yourself).",
     "Use meaningful names for your variables and functions.",

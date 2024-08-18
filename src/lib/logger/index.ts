@@ -1,3 +1,4 @@
+import { inspect } from 'bun';
 import chalk from 'chalk';
 
 type LogLevel = 'base' | 'info' | 'warn' | 'error' | 'debug';
@@ -38,31 +39,38 @@ class Logger {
     return message.replace(urlRegex, (url) => chalk.magenta(url));
   }
 
-  private log(message: string, level: LogLevel = 'base'): void {
+  private formatMessage(message: any): string {
+    if (typeof message === 'object') {
+      return inspect(message);
+    }
+    return message.toString();
+  }
+
+  private log(message: any, level: LogLevel = 'base'): void {
     const color = this.colors[level] || 'white';
     const prefix = this.usePrefix ? `${this.prefix} ` : '';
-    const formattedMessage = this.highlightUrls(message);
+    const formattedMessage = this.highlightUrls(this.formatMessage(message));
     console.log((chalk as any)[color](`${prefix}${formattedMessage}`));
   }
 
-  public gen(message: string): void {
+  public gen(message: any): void {
     this.log(message, 'base');
   }
 
-  public info(message: string): void {
-    this.log(message, 'info');
+  public info(message: any): void {
+    this.log(`[INFO] ${this.formatMessage(message)}`, 'info');
   }
 
-  public warn(message: string): void {
-    this.log(message, 'warn');
+  public warn(message: any): void {
+    this.log(`[WARN] ${this.formatMessage(message)}`, 'warn');
   }
 
-  public error(message: string): void {
-    this.log(message, 'error');
+  public error(message: any): void {
+    this.log(`[ERROR] ${this.formatMessage(message)}`, 'error');
   }
 
-  public debug(message: string): void {
-    this.log(message, 'debug');
+  public debug(message: any): void {
+    this.log(`[DEBUG] ${this.formatMessage(message)}`, 'debug');
   }
 }
 

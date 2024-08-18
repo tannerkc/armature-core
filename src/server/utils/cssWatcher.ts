@@ -14,3 +14,8 @@ export function watchCSS(publicDir: string, onChange: () => void) {
 
   return watcher;
 }
+
+  // let lastCSSUpdateTime = Date.now();
+  // watchCSS(publicFolder, () => {
+  //   lastCSSUpdateTime = Date.now();
+  // });

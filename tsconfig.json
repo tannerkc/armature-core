@@ -9,11 +9,13 @@
 
     // Bundler mode
     "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
+    "allowImportingTsExtensions": false,
     "verbatimModuleSyntax": true,
     "esModuleInterop": true,
     "isolatedModules": true,
-    "noEmit": true,
+    "noEmit": false,
+    "declaration": true,
+    "composite": true,
 
     // Best practices
     "strict": true,
@@ -33,8 +35,8 @@
     },
 
     "jsx": "react-jsx",
-    "jsxImportSource": "framework/src",
+    "jsxImportSource": "jsx-to-html-runtime",
   },
-  "include": ["src/**/*"],
-  "exclude": ["./node_modules"]
+  "include": ["./**/*"],
+  "exclude": ["./node_modules", "example", "dist", "plugins"]
 }
