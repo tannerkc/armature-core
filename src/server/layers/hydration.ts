@@ -1,8 +1,6 @@
 import { log } from "../../index";
 import { existsSync } from "fs";
-import { appendFile, readdir } from 'node:fs/promises';
-import { join, normalize } from "path";
-import sveltePlugin from "../plugins/sveltePlugin";
+import { join } from "path";
 import { minifySync } from "@swc/core";
 import debug from "../../utils/debug";
 
@@ -23,6 +21,7 @@ export const handleHydrationRequest = async (c: any) => {
         
       let jsFile = Bun.file(file);
       let jsContent = await jsFile.text();
+      jsContent = minifySync(jsContent).code
     
       return new Response(jsContent, {
         headers: { 'Content-Type': 'application/javascript' }
@@ -31,4 +30,4 @@ export const handleHydrationRequest = async (c: any) => {
       log.error('Unhandled hydration error:' + error);
       return new Response('Internal Server Error', { status: 500 });
     }
-  };
+};

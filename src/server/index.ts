@@ -76,7 +76,7 @@ export async function createServer() {
     beforeHandle: staticProvider
   });
 
-  const port = new URL(config?.server?.url)?.port || 3000;
+  const port = config?.server?.url ? new URL(config.server.url).port : 3000;
 
   try {
     app.listen(port);

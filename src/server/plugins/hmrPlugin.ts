@@ -5,6 +5,7 @@ import { join, extname, relative, dirname } from 'path';
 import { debug, log } from '../../';
 import { build } from 'bun';
 import { ignoreCssPlugin } from './ignoreCss';
+import { minifySync } from '@swc/core';
 
 interface HMRConfig {
   srcDir: string;
@@ -24,7 +25,7 @@ const defaultConfig: HMRConfig = {
   hmrEventName: 'hmr',
   allowRefreshFromAnotherWindow: false,
   debounceTime: 100,
-};
+} as const;
 
 function clientSSECode(config: HMRConfig): string {
   return `
@@ -33,17 +34,13 @@ function clientSSECode(config: HMRConfig): string {
       const pendingUpdates = new Set();
       const routeVersions = new Map();
 
-      function debounce(func, wait) {
+      const debounce = (func, wait) => {
         let timeout;
-        return function executedFunction(...args) {
-          const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-          };
+        return (...args) => {
           clearTimeout(timeout);
-          timeout = setTimeout(later, wait);
+          timeout = setTimeout(() => func(...args), wait);
         };
-      }
+      };
 
       const processPendingUpdates = debounce(() => {
         pendingUpdates.forEach(({file, version}) => {
@@ -60,42 +57,45 @@ function clientSSECode(config: HMRConfig): string {
         sessionStorage.setItem('routeVersions', JSON.stringify(Array.from(routeVersions)));
       }, ${config.debounceTime});
 
-      function handleHMRUpdate(data) {
-        const {file, version} = JSON.parse(data);
-        pendingUpdates.add({file, version});
-        processPendingUpdates();
-      }
+      const handleHMRUpdate = (data) => {
+        try {
+          const {file, version} = JSON.parse(data);
+          pendingUpdates.add({file, version});
+          processPendingUpdates();
+        } catch (error) {
+          console.error('Error handling HMR update:', error);
+        }
+      };
 
-      function updateCSS(file, version) {
-        console.log(file)
+      const updateCSS = (file, version) => {
         if (!file.startsWith('@scope')) {
-          // Update global CSS
-          const links = document.getElementsByTagName("link");
-          for (let i = 0; i < links.length; i++) {
-            const link = links[i];
-            if (link.rel === "stylesheet" && link.href.includes(file)) {
-              const newLink = document.createElement("link");
-              newLink.rel = "stylesheet";
-              newLink.href = link.href.split("?")[0] + "?v=" + version;
-              newLink.onload = () => link.remove();
-              link.parentNode.insertBefore(newLink, link.nextSibling);
-              return;
-            }
+          const link = document.querySelector('link[rel="stylesheet"][href*="'+file+'"]');
+          if (link) {
+            const newLink = document.createElement("link");
+            newLink.rel = "stylesheet";
+            newLink.href = link.href.split("?")[0] + "?v=" + version;
+            newLink.onload = () => link.remove();
+            link.parentNode.insertBefore(newLink, link.nextSibling);
           }
         } else {
-          // Update scoped CSS
-          document.querySelector('style').remove()
-          const newStyle = document.createElement('style');
-          newStyle.textContent = file.replace('@scope ','').replace(' .css','');
-          document.head.appendChild(newStyle);
+          const styleElement = document.querySelector('style[data-hmr]');
+          const newContent = file.replace('@scope ','').replace(' .css','');
+          if (styleElement) {
+            styleElement.textContent = newContent;
+          } else {
+            const newStyle = document.createElement('style');
+            newStyle.setAttribute('data-hmr', 'true');
+            newStyle.textContent = newContent;
+            document.head.appendChild(newStyle);
+          }
         }
-      }
+      };
 
-      async function updateJS(file, version) {
+      const updateJS = async (file, version) => {
         const correctedFile = file.replace('/src/', '/');
         try {
-          const module = await import('/'+correctedFile + '?v=' + version)
-          if (module.default && typeof module.default === 'function') {
+          const module = await import('/' + correctedFile + '?v=' + version);
+          if (typeof module.default === 'function') {
             const container = document.querySelector('div[app]');
             if (container) {
               const params = JSON.parse(container.dataset.params || '{}');
@@ -105,23 +105,9 @@ function clientSSECode(config: HMRConfig): string {
         } catch(error) {
           console.error('Error updating compiled module:', error);
         }
-      }
+      };
 
-      function updateStaticJS(file, version) {
-        const scripts = document.getElementsByTagName("script");
-        for (let i = 0; i < scripts.length; i++) {
-          const script = scripts[i];
-          if (script.src && script.src.includes(file)) {
-            const newScript = document.createElement("script");
-            newScript.src = script.src.split("?")[0] + "?v=" + version;
-            newScript.onload = () => script.remove();
-            script.parentNode.insertBefore(newScript, script.nextSibling);
-            return;
-          }
-        }
-      }
-
-      function checkForUpdates() {
+      const checkForUpdates = () => {
         const currentPath = window.location.pathname;
         const storedVersions = JSON.parse(sessionStorage.getItem('routeVersions') || '{}');
         Object.entries(storedVersions).forEach(([file, version]) => {
@@ -129,21 +115,16 @@ function clientSSECode(config: HMRConfig): string {
             handleHMRUpdate(JSON.stringify({file, version}));
           }
         });
-      }
+      };
 
       window.addEventListener('load', () => {
         hmrSource = new EventSource("${config.hmrEndpoint}");
-        hmrSource.addEventListener("${config.hmrEventName}", (event) => {
-          handleHMRUpdate(event.data);
-        });
+        hmrSource.addEventListener("${config.hmrEventName}", (event) => handleHMRUpdate(event.data));
         checkForUpdates();
       });
 
       window.addEventListener('popstate', checkForUpdates);
-
-      window.addEventListener("unload", () => {
-        if(hmrSource) hmrSource.close();
-      });
+      window.addEventListener("unload", () => hmrSource?.close());
 
       ${config.allowRefreshFromAnotherWindow ? `
         const channel = new BroadcastChannel("${config.hmrEventName}");
@@ -151,15 +132,13 @@ function clientSSECode(config: HMRConfig): string {
           console.log("Broadcast received:", event.data);
           handleHMRUpdate(event.data);
         });
-        window.addEventListener("unload", () => {
-          channel.close();
-        });
+        window.addEventListener("unload", () => channel.close());
       ` : ''}
     })();
   `;
 }
 
-async function buildFile(filePath: string, outDir: string, srcDir: string) {
+async function buildFile(filePath: string, outDir: string, srcDir: string): Promise<string | null> {
   try {
     const relativePath = relative(srcDir, filePath);
     const outPath = join(outDir, relativePath.replace(/\.tsx?$/, '.js'));
@@ -178,16 +157,13 @@ async function buildFile(filePath: string, outDir: string, srcDir: string) {
       return null;
     }
 
-    for (const output of result.outputs) {
-      if (output.kind === "entry-point") {
-        return relative(process.cwd(), output.path);
-      }
-    }
+    const entryPoint = result.outputs.find(output => output.kind === "entry-point");
+    return entryPoint ? relative(process.cwd(), entryPoint.path) : null;
   } catch (error) {
-    log.error('Build error:' + error);
+    log.error('Build error:');
+    log.error(error)
+    return null;
   }
-
-  return null;
 }
 
 function createWatcher(config: HMRConfig) {
@@ -196,7 +172,7 @@ function createWatcher(config: HMRConfig) {
     const publicPath = join(process.cwd(), config.publicDir);
     
     const watcher = chokidar.watch([srcPath, publicPath], {
-      ignored: /(^|[\/\\])\../, // ignore dotfiles
+      ignored: /(^|[\/\\])\../,
       persistent: true,
       ignoreInitial: true,
     });
@@ -214,11 +190,9 @@ function createWatcher(config: HMRConfig) {
               stream.send(JSON.stringify({ file: builtFile, version }));
             }
           } else if (ext === '.css') {
-            // For scoped CSS
-            const file = Bun.file(path)
-            const cssContent = await file.text()
-
-            stream.send(JSON.stringify({ file: '@scope '+cssContent+' .css', version }))
+            const file = Bun.file(path);
+            const cssContent = await file.text();
+            stream.send(JSON.stringify({ file: `@scope ${cssContent} .css`, version }));
           }
         } else if (path.startsWith(publicPath)) {
           const relativePath = relative(publicPath, path);
@@ -231,12 +205,12 @@ function createWatcher(config: HMRConfig) {
   };
 }
 
-export const hmr = async (config: Partial<HMRConfig> = {}) => {
-  const finalConfig = { ...defaultConfig, ...config } as HMRConfig;
+export const hmr = async (config: Partial<HMRConfig> = {}): Promise<Elysia> => {
+  const finalConfig: HMRConfig = { ...defaultConfig, ...config };
 
   const clientCode = clientSSECode(finalConfig);
 
-  await Bun.write(join(process.cwd(), '.armature', 'hmr.js'), clientCode);
+  await Bun.write(join(process.cwd(), '.armature', 'hmr.js'), minifySync(clientCode).code);
 
   return new Elysia()
     .get(finalConfig.hmrEndpoint, () => 
