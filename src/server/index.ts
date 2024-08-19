@@ -25,8 +25,8 @@ export async function createServer() {
   const staticProvider = createStaticMiddleware(publicFolder)
 
   app.use(hmr({
-    prefixToWatch: './public',
-    extensionsToWatch: ['html', 'css', 'js'],
+    srcDir: './src',
+    outDir: './.armature',
   }))
 
   debug(apiMap)

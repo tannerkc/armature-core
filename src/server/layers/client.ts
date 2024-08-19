@@ -179,12 +179,15 @@ export const handleClientRequest = async (c: any) => {
         debug(JSON.stringify(routeInfo.params))
   
         let hydrateScript = `
-        function hydrate(element, container, params) {
-          if (container) {
+          const container = document.querySelector('div[app]');
+          const params = JSON.stringify(${JSON.stringify(routeInfo.params)});
+          container.dataset.params = params;
+          function hydrate(element, container, params) {
+            if (container) {
               container.innerHTML = element(params).string;
+            }
           }
-        }
-        hydrate(${componentName}, document.querySelector('div[app]'), ${JSON.stringify(routeInfo.params)})
+          hydrate(${componentName}, container, params)
         `.trim();
         hydrateScript = minifySync(hydrateScript).code;
 

@@ -1,13 +1,13 @@
 import { Elysia } from 'elysia';
 import { Stream } from '@elysiajs/stream';
 import chokidar from 'chokidar';
-import { join, extname, relative } from 'path';
-import { debug } from 'index';
-import { minifySync } from '@swc/core';
+import { join, extname, relative, dirname } from 'path';
+import { debug, log } from '../../';
+import { build } from 'bun';
 
 interface HMRConfig {
-  prefixToWatch: string;
-  extensionsToWatch: string[];
+  srcDir: string;
+  outDir: string;
   hmrEndpoint: string;
   hmrEventName: string;
   allowRefreshFromAnotherWindow: boolean;
@@ -15,8 +15,8 @@ interface HMRConfig {
 }
 
 const defaultConfig: HMRConfig = {
-  prefixToWatch: './public',
-  extensionsToWatch: [],
+  srcDir: './src',
+  outDir: './.armature',
   hmrEndpoint: '/__hmr_stream__',
   hmrEventName: 'hmr',
   allowRefreshFromAnotherWindow: false,
@@ -24,7 +24,7 @@ const defaultConfig: HMRConfig = {
 };
 
 function clientSSECode(config: HMRConfig): string {
-  return minifySync(`
+  return `
     (function() {
       let hmrSource;
       const pendingUpdates = new Set();
@@ -42,17 +42,12 @@ function clientSSECode(config: HMRConfig): string {
       }
 
       const processPendingUpdates = debounce(() => {
-        if (pendingUpdates.has('*')) {
-          window.location.reload();
-          return;
-        }
-
         pendingUpdates.forEach(file => {
           if (file.endsWith('.css')) {
             updateCSS(file);
           } else if (file.endsWith('.js')) {
             updateJS(file);
-          } else if (file === window.location.pathname) {
+          } else {
             window.location.reload();
           }
         });
@@ -81,17 +76,18 @@ function clientSSECode(config: HMRConfig): string {
       }
 
       function updateJS(file) {
-        const scripts = document.getElementsByTagName("script");
-        for (let i = 0; i < scripts.length; i++) {
-          const script = scripts[i];
-          if (script.src && script.src.includes(file)) {
-            const newScript = document.createElement("script");
-            newScript.src = script.src.split("?")[0] + "?t=" + Date.now();
-            newScript.onload = () => script.remove();
-            script.parentNode.insertBefore(newScript, script.nextSibling);
-            return;
+        const correctedFile = file.replace('/src/', '/');
+        import('/'+correctedFile + '?t=' + Date.now()).then(module => {
+          if (module.default && typeof module.default === 'function') {
+            const container = document.querySelector('div[app]');
+            if (container) {
+              const params = JSON.parse(container.dataset.params || '{}');
+              container.innerHTML = module.default(params).string;
+            }
           }
-        }
+        }).catch(error => {
+          console.error('Error updating module:', error);
+        });
       }
 
       window.addEventListener('load', () => {
@@ -116,13 +112,42 @@ function clientSSECode(config: HMRConfig): string {
         });
       ` : ''}
     })();
-  `).code;
+  `;
+}
+
+async function buildFile(filePath: string, outDir: string, srcDir: string) {
+  try {
+    const relativePath = relative(srcDir, filePath);
+    const outPath = join(outDir, relativePath.replace(/\.tsx?$/, '.js'));
+    
+    const result = await build({
+      entrypoints: [filePath],
+      outdir: dirname(outPath),
+      minify: true,
+      splitting: true,
+    });
+
+    if (!result.success) {
+      log.error('Build failed:');
+      log.error(result)
+      return null;
+    }
+
+    for (const output of result.outputs) {
+      if (output.kind === "entry-point") {
+        return relative(process.cwd(), output.path);
+      }
+    }
+  } catch (error) {
+    log.error('Build error:' + error);
+  }
+
+  return null;
 }
 
 function createWatcher(config: HMRConfig) {
   return (stream: Stream<string>) => {
-    const watchPath = join(process.cwd(), config.prefixToWatch);
-    const extensionsToWatch = new Set(config.extensionsToWatch.map(e => e.startsWith('.') ? e : `.${e}`));
+    const watchPath = join(process.cwd(), config.srcDir);
     
     const watcher = chokidar.watch(watchPath, {
       ignored: /(^|[\/\\])\../, // ignore dotfiles
@@ -130,14 +155,14 @@ function createWatcher(config: HMRConfig) {
       ignoreInitial: true,
     });
 
-    watcher.on('all', (event, path) => {
+    watcher.on('all', async (event, path) => {
       if (event === 'change' || event === 'add') {
         debug(`${event} detected: ${path}`);
-        const extension = extname(path);
-        const relativePath = relative(watchPath, path);
-        
-        if (extensionsToWatch.size === 0 || extensionsToWatch.has(extension)) {
-          stream.send(relativePath);
+        if (extname(path) === '.tsx') {
+          const builtFile = await buildFile(path, config.outDir, config.srcDir);
+          if (builtFile) {
+            stream.send(builtFile);
+          }
         }
       }
     });
