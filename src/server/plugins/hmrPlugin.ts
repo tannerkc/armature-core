@@ -7,6 +7,7 @@ import { build } from 'bun';
 
 interface HMRConfig {
   srcDir: string;
+  publicDir: string;
   outDir: string;
   hmrEndpoint: string;
   hmrEventName: string;
@@ -16,6 +17,7 @@ interface HMRConfig {
 
 const defaultConfig: HMRConfig = {
   srcDir: './src',
+  publicDir: './public',
   outDir: './.armature',
   hmrEndpoint: '/__hmr_stream__',
   hmrEventName: 'hmr',
@@ -43,11 +45,14 @@ function clientSSECode(config: HMRConfig): string {
 
       const processPendingUpdates = debounce(() => {
         pendingUpdates.forEach(file => {
-          if (file.endsWith('.css')) {
+          if (file.startsWith('/.armature/')) {
+            updateCompiledJS(file);
+          } else if (file.endsWith('.css')) {
             updateCSS(file);
           } else if (file.endsWith('.js')) {
-            updateJS(file);
+            updateStaticJS(file);
           } else {
+            // For other file types, just reload the page
             window.location.reload();
           }
         });
@@ -75,9 +80,8 @@ function clientSSECode(config: HMRConfig): string {
         }
       }
 
-      function updateJS(file) {
-        const correctedFile = file.replace('/src/', '/');
-        import('/'+correctedFile + '?t=' + Date.now()).then(module => {
+      function updateCompiledJS(file) {
+        import(file + '?t=' + Date.now()).then(module => {
           if (module.default && typeof module.default === 'function') {
             const container = document.querySelector('div[app]');
             if (container) {
@@ -86,8 +90,22 @@ function clientSSECode(config: HMRConfig): string {
             }
           }
         }).catch(error => {
-          console.error('Error updating module:', error);
+          console.error('Error updating compiled module:', error);
         });
+      }
+
+      function updateStaticJS(file) {
+        const scripts = document.getElementsByTagName("script");
+        for (let i = 0; i < scripts.length; i++) {
+          const script = scripts[i];
+          if (script.src && script.src.includes(file)) {
+            const newScript = document.createElement("script");
+            newScript.src = script.src.split("?")[0] + "?t=" + Date.now();
+            newScript.onload = () => script.remove();
+            script.parentNode.insertBefore(newScript, script.nextSibling);
+            return;
+          }
+        }
       }
 
       window.addEventListener('load', () => {
@@ -147,9 +165,10 @@ async function buildFile(filePath: string, outDir: string, srcDir: string) {
 
 function createWatcher(config: HMRConfig) {
   return (stream: Stream<string>) => {
-    const watchPath = join(process.cwd(), config.srcDir);
+    const srcPath = join(process.cwd(), config.srcDir);
+    const publicPath = join(process.cwd(), config.publicDir);
     
-    const watcher = chokidar.watch(watchPath, {
+    const watcher = chokidar.watch([srcPath, publicPath], {
       ignored: /(^|[\/\\])\../, // ignore dotfiles
       persistent: true,
       ignoreInitial: true,
@@ -158,11 +177,16 @@ function createWatcher(config: HMRConfig) {
     watcher.on('all', async (event, path) => {
       if (event === 'change' || event === 'add') {
         debug(`${event} detected: ${path}`);
-        if (extname(path) === '.tsx') {
+        const ext = extname(path);
+        
+        if (path.startsWith(srcPath) && ext === '.tsx') {
           const builtFile = await buildFile(path, config.outDir, config.srcDir);
           if (builtFile) {
             stream.send(builtFile);
           }
+        } else if (path.startsWith(publicPath)) {
+          const relativePath = relative(publicPath, path);
+          stream.send('/' + relativePath);
         }
       }
     });
