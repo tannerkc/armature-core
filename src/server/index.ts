@@ -2,12 +2,14 @@ import { Elysia } from 'elysia';
 import { swagger } from '@elysiajs/swagger'
 import { jwt } from '@elysiajs/jwt'
 import { join } from 'path';
-import fs from 'fs/promises'
+// import fs from 'fs/promises'
+import fs, { readdir, stat } from 'node:fs/promises';
 import { createStaticMiddleware } from './middleware/staticMiddleware';
 import { debug, log } from '..';
 import { handleClientRequest } from './layers/client';
 import { getJWTconfig } from 'src/api';
 import { config } from 'index';
+import { loadApiModules } from './layers/api';
 
 const publicFolder = join(process.cwd(), 'public')
 const apiDir = join(process.cwd(), 'src', 'api');
@@ -22,17 +24,9 @@ if (jwtConfig.name && jwtConfig.secret) app.use(jwt(jwtConfig))
 export async function createServer() {
     const staticPlugin = createStaticMiddleware(publicFolder)
 
-    // Dynamically load API routes
-    const apiFiles = await fs.readdir(apiDir);
-    const apiMap = new Map()
+    const apiMap = await loadApiModules()
 
-    for (const file of apiFiles) {
-        const filePath = join(apiDir, file);
-        const routePath = `/${file.replace('index.ts', '')}`;
-        const apiModule = await import(filePath);
-
-        apiMap.set(routePath, apiModule);
-    }
+    debug(apiMap)
 
     app.group('/api', (app) => {
         for (const [routePath, handlers] of apiMap.entries()) {

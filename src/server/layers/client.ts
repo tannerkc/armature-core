@@ -113,8 +113,6 @@ export const handleClientRequest = async (c: any) => {
     const url = new URL(c.request.url);
 
     debug(`Attempting to serve route: ${url.pathname}`);
-    debug(c.request.url);
-    debug(process.cwd());
   
     const htmlFile = Bun.file('./public/index.html');
     const htmlContent = await htmlFile.text();
