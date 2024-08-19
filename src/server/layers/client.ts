@@ -181,7 +181,7 @@ export const handleClientRequest = async (c: any) => {
         let hydrateScript = `
           const container = document.querySelector('div[app]');
           const params = JSON.stringify(${JSON.stringify(routeInfo.params)});
-          container.dataset.params = params;
+          // container.dataset.params = params;
           function hydrate(element, container, params) {
             if (container) {
               container.innerHTML = element(params).string;

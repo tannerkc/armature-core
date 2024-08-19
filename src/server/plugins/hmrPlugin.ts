@@ -45,14 +45,11 @@ function clientSSECode(config: HMRConfig): string {
 
       const processPendingUpdates = debounce(() => {
         pendingUpdates.forEach(file => {
-          if (file.startsWith('/.armature/')) {
-            updateCompiledJS(file);
-          } else if (file.endsWith('.css')) {
+          if (file.endsWith('.css')) {
             updateCSS(file);
           } else if (file.endsWith('.js')) {
-            updateStaticJS(file);
+            updateJS(file);
           } else {
-            // For other file types, just reload the page
             window.location.reload();
           }
         });
@@ -80,8 +77,9 @@ function clientSSECode(config: HMRConfig): string {
         }
       }
 
-      function updateCompiledJS(file) {
-        import(file + '?t=' + Date.now()).then(module => {
+      function updateJS(file) {
+        const correctedFile = file.replace('/src/', '/');
+        import('/'+correctedFile + '?t=' + Date.now()).then(module => {
           if (module.default && typeof module.default === 'function') {
             const container = document.querySelector('div[app]');
             if (container) {
@@ -90,22 +88,8 @@ function clientSSECode(config: HMRConfig): string {
             }
           }
         }).catch(error => {
-          console.error('Error updating compiled module:', error);
+          console.error('Error updating module:', error);
         });
-      }
-
-      function updateStaticJS(file) {
-        const scripts = document.getElementsByTagName("script");
-        for (let i = 0; i < scripts.length; i++) {
-          const script = scripts[i];
-          if (script.src && script.src.includes(file)) {
-            const newScript = document.createElement("script");
-            newScript.src = script.src.split("?")[0] + "?t=" + Date.now();
-            newScript.onload = () => script.remove();
-            script.parentNode.insertBefore(newScript, script.nextSibling);
-            return;
-          }
-        }
       }
 
       window.addEventListener('load', () => {
