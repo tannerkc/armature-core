@@ -30,6 +30,7 @@ function clientSSECode(config: HMRConfig): string {
     (function() {
       let hmrSource;
       const pendingUpdates = new Set();
+      const routeVersions = new Map();
 
       function debounce(func, wait) {
         let timeout;
@@ -44,32 +45,34 @@ function clientSSECode(config: HMRConfig): string {
       }
 
       const processPendingUpdates = debounce(() => {
-        pendingUpdates.forEach(file => {
+        pendingUpdates.forEach(({file, version}) => {
           if (file.endsWith('.css')) {
-            updateCSS(file);
+            updateCSS(file, version);
           } else if (file.endsWith('.js')) {
-            updateJS(file);
+            updateJS(file, version);
           } else {
-            window.location.reload();
+            routeVersions.set(file, version);
           }
         });
 
         pendingUpdates.clear();
+        sessionStorage.setItem('routeVersions', JSON.stringify(Array.from(routeVersions)));
       }, ${config.debounceTime});
 
       function handleHMRUpdate(data) {
-        pendingUpdates.add(data);
+        const {file, version} = JSON.parse(data);
+        pendingUpdates.add({file, version});
         processPendingUpdates();
       }
 
-      function updateCSS(file) {
+      function updateCSS(file, version) {
         const links = document.getElementsByTagName("link");
         for (let i = 0; i < links.length; i++) {
           const link = links[i];
           if (link.rel === "stylesheet" && link.href.includes(file)) {
             const newLink = document.createElement("link");
             newLink.rel = "stylesheet";
-            newLink.href = link.href.split("?")[0] + "?t=" + Date.now();
+            newLink.href = link.href.split("?")[0] + "?v=" + version;
             newLink.onload = () => link.remove();
             link.parentNode.insertBefore(newLink, link.nextSibling);
             return;
@@ -77,9 +80,9 @@ function clientSSECode(config: HMRConfig): string {
         }
       }
 
-      function updateJS(file) {
+      function updateJS(file, version) {
         const correctedFile = file.replace('/src/', '/');
-        import('/'+correctedFile + '?t=' + Date.now()).then(module => {
+        import('/'+correctedFile + '?v=' + version).then(module => {
           if (module.default && typeof module.default === 'function') {
             const container = document.querySelector('div[app]');
             if (container) {
@@ -88,7 +91,31 @@ function clientSSECode(config: HMRConfig): string {
             }
           }
         }).catch(error => {
-          console.error('Error updating module:', error);
+          console.error('Error updating compiled module:', error);
+        });
+      }
+
+      function updateStaticJS(file, version) {
+        const scripts = document.getElementsByTagName("script");
+        for (let i = 0; i < scripts.length; i++) {
+          const script = scripts[i];
+          if (script.src && script.src.includes(file)) {
+            const newScript = document.createElement("script");
+            newScript.src = script.src.split("?")[0] + "?v=" + version;
+            newScript.onload = () => script.remove();
+            script.parentNode.insertBefore(newScript, script.nextSibling);
+            return;
+          }
+        }
+      }
+
+      function checkForUpdates() {
+        const currentPath = window.location.pathname;
+        const storedVersions = JSON.parse(sessionStorage.getItem('routeVersions') || '{}');
+        Object.entries(storedVersions).forEach(([file, version]) => {
+          if (file.includes(currentPath) || file.endsWith('.css') || file.endsWith('.js')) {
+            handleHMRUpdate(JSON.stringify({file, version}));
+          }
         });
       }
 
@@ -97,7 +124,10 @@ function clientSSECode(config: HMRConfig): string {
         hmrSource.addEventListener("${config.hmrEventName}", (event) => {
           handleHMRUpdate(event.data);
         });
+        checkForUpdates();
       });
+
+      window.addEventListener('popstate', checkForUpdates);
 
       window.addEventListener("unload", () => {
         if(hmrSource) hmrSource.close();
@@ -162,15 +192,16 @@ function createWatcher(config: HMRConfig) {
       if (event === 'change' || event === 'add') {
         debug(`${event} detected: ${path}`);
         const ext = extname(path);
+        const version = Date.now().toString();
         
         if (path.startsWith(srcPath) && ext === '.tsx') {
           const builtFile = await buildFile(path, config.outDir, config.srcDir);
           if (builtFile) {
-            stream.send(builtFile);
+            stream.send(JSON.stringify({ file: builtFile, version }));
           }
         } else if (path.startsWith(publicPath)) {
           const relativePath = relative(publicPath, path);
-          stream.send('/' + relativePath);
+          stream.send(JSON.stringify({ file: '/' + relativePath, version }));
         }
       }
     });
