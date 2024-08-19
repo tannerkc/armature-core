@@ -4,6 +4,7 @@ import chokidar from 'chokidar';
 import { join, extname, relative, dirname } from 'path';
 import { debug, log } from '../../';
 import { build } from 'bun';
+import { ignoreCssPlugin } from './ignoreCss';
 
 interface HMRConfig {
   srcDir: string;
@@ -90,9 +91,10 @@ function clientSSECode(config: HMRConfig): string {
         }
       }
 
-      function updateJS(file, version) {
+      async function updateJS(file, version) {
         const correctedFile = file.replace('/src/', '/');
-        import('/'+correctedFile + '?v=' + version).then(module => {
+        try {
+          const module = await import('/'+correctedFile + '?v=' + version)
           if (module.default && typeof module.default === 'function') {
             const container = document.querySelector('div[app]');
             if (container) {
@@ -100,9 +102,9 @@ function clientSSECode(config: HMRConfig): string {
               container.innerHTML = module.default(params).string;
             }
           }
-        }).catch(error => {
+        } catch(error) {
           console.error('Error updating compiled module:', error);
-        });
+        }
       }
 
       function updateStaticJS(file, version) {
@@ -167,6 +169,7 @@ async function buildFile(filePath: string, outDir: string, srcDir: string) {
       outdir: dirname(outPath),
       minify: true,
       splitting: true,
+      plugins: [ignoreCssPlugin()],
     });
 
     if (!result.success) {
@@ -211,12 +214,10 @@ function createWatcher(config: HMRConfig) {
               stream.send(JSON.stringify({ file: builtFile, version }));
             }
           } else if (ext === '.css') {
-            // For scoped CSS, send the original file path
-            // const relativePath = relative(srcPath, path);
-            // stream.send(JSON.stringify({ file: '/src/' + relativePath, version }));
+            // For scoped CSS
             const file = Bun.file(path)
             const cssContent = await file.text()
-            log.info(cssContent)
+
             stream.send(JSON.stringify({ file: '@scope '+cssContent+' .css', version }))
           }
         } else if (path.startsWith(publicPath)) {

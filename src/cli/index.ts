@@ -15,7 +15,7 @@ const serverScriptPath = join(__dirname, "../server/index.js");
 if (command === 'dev') {
   const runBunServer = () => {
     const process = Bun.spawn({
-      cmd: ["bun", "--hot", serverScriptPath],
+      cmd: ["bun", "--watch", serverScriptPath],
       stdout: "inherit",
       stderr: "inherit"
     });

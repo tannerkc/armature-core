@@ -5,6 +5,7 @@ import { join, normalize, relative } from "path";
 import sveltePlugin from "../plugins/sveltePlugin";
 import { minifySync } from "@swc/core";
 import debug from "../../utils/debug";
+import { ignoreCssPlugin } from "../plugins/ignoreCss";
 
 const routeCache = new Map<string, { filePath: string | null; params: Record<string, string> } | null>();
 const buildCache = new Map<string, any>();
