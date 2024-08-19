@@ -2,90 +2,89 @@ import { Elysia } from 'elysia';
 import { swagger } from '@elysiajs/swagger'
 import { jwt } from '@elysiajs/jwt'
 import { join } from 'path';
-// import fs from 'fs/promises'
-import fs, { readdir, stat } from 'node:fs/promises';
-import { createStaticMiddleware } from './middleware/staticMiddleware';
+import { createStaticMiddleware, handleCssRequest } from './middleware/staticMiddleware';
 import { debug, log } from '..';
 import { handleClientRequest } from './layers/client';
-import { getJWTconfig } from 'src/api';
-import { config } from 'index';
+import { config } from '../../index';
 import { loadApiModules } from './layers/api';
+import { handleHydrationRequest } from './layers/hydration';
+import { hmr } from './plugins/hmrPlugin';
 
 const publicFolder = join(process.cwd(), 'public')
-const apiDir = join(process.cwd(), 'src', 'api');
 
-const jwtConfig = config.jwt || getJWTconfig()
-
-const app = new Elysia();
-
-app.use(swagger())
-if (jwtConfig.name && jwtConfig.secret) app.use(jwt(jwtConfig))
+const jwtConfig = config.jwt || {}
+const swaggerConfig = config.api
 
 export async function createServer() {
-    const staticPlugin = createStaticMiddleware(publicFolder)
+  const app = new Elysia();
+  
+  // Middleware
+  app.use(swagger(swaggerConfig))
+  if (jwtConfig.name && jwtConfig.secret) app.use(jwt(jwtConfig))
+  const apiMap = await loadApiModules()
+  const staticProvider = createStaticMiddleware(publicFolder)
 
-    const apiMap = await loadApiModules()
+  app.use(hmr({
+    prefixToWatch: './public',
+    extensionsToWatch: ['html', 'css', 'js'],
+  }))
 
-    debug(apiMap)
+  debug(apiMap)
 
-    app.group('/api', (app) => {
-        for (const [routePath, handlers] of apiMap.entries()) {
-          // for (const method of Object.keys(handlers)) {
-          //   const handler = handlers[method];
-          //   app[method.toLowerCase()](routePath, typeof handler === "function" ? handler : handler.handler, {
-          //     ...handler.document
-          //   });
-          // }
-
-          
-          if (handlers.GET) {
-            const handler = handlers.GET
-            app.get(routePath, typeof handler === "function" ? handler : handler.handler, {
-              ...handler.document
-            });
-          }
-          if (handlers.POST) {
-            const handler = handlers.POST
-            app.post(routePath, typeof handler === "function" ? handler : handler.handler, {
-              ...handler.document
-            });
-          }
-          if (handlers.DELETE) {
-            const handler = handlers.DELETE
-            app.delete(routePath, typeof handler === "function" ? handler : handler.handler, {
-              ...handler.document
-            });
-          }
-          if (handlers.PUT) {
-            const handler = handlers.PUT
-            app.put(routePath, typeof handler === "function" ? handler : handler.handler, {
-              ...handler.document
-            });
-          }
-        }
-        return app
-    });
-    
-    app.get('*', async (c) => {
-      if (c.request.url.endsWith('/global.css')) {
-        const cssPath = join(publicFolder, 'global.css');
-        const cssFile = Bun.file(cssPath);
-        const cssContent = await cssFile.text();
-        
-        return new Response(cssContent, {
-          headers: { 'Content-Type': 'text/css' }
+  // API Layer
+  app.group('/api', (app) => {
+    for (const [routePath, handlers] of apiMap.entries()) {
+      if (handlers.GET) {
+        const handler = handlers.GET
+        app.get(routePath, typeof handler === "function" ? handler : handler.handler, {
+          ...handler.document
         });
       }
-      return handleClientRequest(c)
-    }, {
-      beforeHandle: staticPlugin
-    });
+      if (handlers.POST) {
+        const handler = handlers.POST
+        app.post(routePath, typeof handler === "function" ? handler : handler.handler, {
+          ...handler.document
+        });
+      }
+      if (handlers.DELETE) {
+        const handler = handlers.DELETE
+        app.delete(routePath, typeof handler === "function" ? handler : handler.handler, {
+          ...handler.document
+        });
+      }
+      if (handlers.PUT) {
+        const handler = handlers.PUT
+        app.put(routePath, typeof handler === "function" ? handler : handler.handler, {
+          ...handler.document
+        });
+      }
+    }
+    return app
+  });
+
+  // Hydration
+  app.get('/.armature/*', handleHydrationRequest)
+
+  // Client Layer
+  app.get('*', async (c) => {
+    if (c.request.url.endsWith('/global.css')) {
+      return await handleCssRequest(c, publicFolder);
+    }
+
+    return await handleClientRequest(c)
+  }, {
+    beforeHandle: staticProvider
+  });
 
   const port = new URL(config?.server?.url)?.port || 3000;
-  app.listen(port);
 
-  log.gen(`App running at ${app.server!.url.origin}\n`);
-  log.info(`Automatic documention for your API layer will be generated at: \n${app.server!.url.origin}/swagger`);
+  try {
+    app.listen(port);
+    log.gen(`App running at ${app.server!.url.origin}`);
+    log.info(`Your API documentation will generate at: ${app.server!.url.origin}${config.api.path}`);
+  } catch (error) {
+    log.error('Failed to start server:' + error);
+  }
 }
 
-export type App = typeof app;
+export type App = Awaited<ReturnType<typeof createServer>>;

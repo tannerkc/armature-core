@@ -1,7 +1,7 @@
-import { log } from "../../index";
+import { isProduction, log } from "../../index";
 import { existsSync } from "fs";
 import { appendFile, readdir } from 'node:fs/promises';
-import { join, normalize } from "path";
+import { join, normalize, relative } from "path";
 import sveltePlugin from "../plugins/sveltePlugin";
 import { minifySync } from "@swc/core";
 import debug from "../../utils/debug";
@@ -97,15 +97,21 @@ const streamResponse = (htmlStart: string, cssContent: string, jsContent: string
       controller.enqueue(htmlStart);
       controller.enqueue(`<style>${cssContent}</style>`);
       controller.enqueue(htmlEnd);
-      controller.enqueue(`<script type="module">${jsContent}</script>`);
-      // controller.enqueue(`<script type="module">${hydrationScript}</script>`);
+      controller.enqueue(`<script src="${jsContent}" type="module"></script>`);
+      if (!isProduction) controller.enqueue(`<script src="/.armature/hmr.js" type="module"></script>`);
       controller.close();
     }
   });
 
-  return new Response(stream, {
-    headers: { 'Content-Type': 'text/html' }
-  });
+  const headers = {
+    'Content-Type': 'text/html',
+  };
+
+  if (isProduction) {
+    (headers as any)['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline';";
+  }
+
+  return new Response(stream, { headers });
 };
 
 export const handleClientRequest = async (c: any) => {
@@ -134,7 +140,7 @@ export const handleClientRequest = async (c: any) => {
     }
 
     const compilePath = normalize(join(process.cwd(), '.armature', 'routes', url.pathname));
-      
+ 
     let js;
     try {
       if (buildCache.has(routeInfo.filePath)) {
@@ -182,14 +188,7 @@ export const handleClientRequest = async (c: any) => {
         `.trim();
         hydrateScript = minifySync(hydrateScript).code;
 
-        jsContent += hydrateScript;
-        await appendFile(output.path, hydrateScript);
-      } else if (output.path.endsWith('.css')) {
-        cssContent += await output.text();
-      }
-    }
-
-    let windowErrorScript = `window.addEventListener('error', (event) => {
+        let windowErrorScript = `window.addEventListener('error', (event) => {
           console.error('Global error caught:', event.error);
           const appContainer = document.querySelector('div[app]');
           if (appContainer) {
@@ -197,9 +196,16 @@ export const handleClientRequest = async (c: any) => {
             appContainer.innerHTML += '<p>An error occurred. Please try refreshing the page.</p>';
           }
         });`;
-    windowErrorScript = minifySync(windowErrorScript).code;
-    
-    jsContent += windowErrorScript;
+        windowErrorScript = minifySync(windowErrorScript).code;
+
+        let additionalJsContent = hydrateScript + windowErrorScript;
+
+        jsContent = '/' + relative(process.cwd(), output.path)
+        await appendFile(output.path, additionalJsContent);
+      } else if (output.path.endsWith('.css')) {
+        cssContent += await output.text();
+      }
+    }
 
     return streamResponse(htmlStart, cssContent, jsContent, htmlEnd);
   } catch (error: any) {

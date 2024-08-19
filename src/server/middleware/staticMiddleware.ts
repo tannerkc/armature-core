@@ -1,4 +1,4 @@
-import { Elysia } from 'elysia';
+import { Elysia, type AnyElysia } from 'elysia';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -12,7 +12,7 @@ const mimeTypes: Record<string, string> = {
     '.ico': 'image/x-icon',
 };
 
-export function createStaticMiddleware(publicDir: string) {
+export const createStaticMiddleware = (publicDir: string, cacheDuration: number = 3600) => {
     return async ({ request }: any) => {
         const url = new URL(request.url);
         const filePath = path.join(publicDir, url.pathname);
@@ -22,17 +22,30 @@ export function createStaticMiddleware(publicDir: string) {
             if (stat.isFile()) {
                 const ext = path.extname(filePath).toLowerCase();
                 const contentType = mimeTypes[ext] || 'text/plain';
-                const content = await fs.readFile(filePath);
+                const file = Bun.file(filePath);
+                const content = await file.text();
 
                 return new Response(content, {
-                    headers: { 'Content-Type': contentType },
+                    headers: {
+                        'Content-Type': contentType,
+                        // 'Cache-Control': `public, max-age=${cacheDuration}`,
+                    },
                 });
             }
         } catch (error) {
             // File not found, continue to next middleware
         }
 
-        // Continue to the next middleware or route handler
-        // return next();
+        return;
     };
+}
+
+export const handleCssRequest = async (c: any, publicFolder: string) => {
+    const cssPath = path.join(publicFolder, 'global.css');
+    const cssFile = Bun.file(cssPath);
+    const cssContent = await cssFile.text();
+    
+    return new Response(cssContent, {
+      headers: { 'Content-Type': 'text/css' }
+    });
 }
