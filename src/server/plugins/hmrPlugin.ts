@@ -66,17 +66,27 @@ function clientSSECode(config: HMRConfig): string {
       }
 
       function updateCSS(file, version) {
-        const links = document.getElementsByTagName("link");
-        for (let i = 0; i < links.length; i++) {
-          const link = links[i];
-          if (link.rel === "stylesheet" && link.href.includes(file)) {
-            const newLink = document.createElement("link");
-            newLink.rel = "stylesheet";
-            newLink.href = link.href.split("?")[0] + "?v=" + version;
-            newLink.onload = () => link.remove();
-            link.parentNode.insertBefore(newLink, link.nextSibling);
-            return;
+        console.log(file)
+        if (!file.startsWith('@scope')) {
+          // Update global CSS
+          const links = document.getElementsByTagName("link");
+          for (let i = 0; i < links.length; i++) {
+            const link = links[i];
+            if (link.rel === "stylesheet" && link.href.includes(file)) {
+              const newLink = document.createElement("link");
+              newLink.rel = "stylesheet";
+              newLink.href = link.href.split("?")[0] + "?v=" + version;
+              newLink.onload = () => link.remove();
+              link.parentNode.insertBefore(newLink, link.nextSibling);
+              return;
+            }
           }
+        } else {
+          // Update scoped CSS
+          document.querySelector('style').remove()
+          const newStyle = document.createElement('style');
+          newStyle.textContent = file.replace('@scope ','').replace(' .css','');
+          document.head.appendChild(newStyle);
         }
       }
 
@@ -194,10 +204,20 @@ function createWatcher(config: HMRConfig) {
         const ext = extname(path);
         const version = Date.now().toString();
         
-        if (path.startsWith(srcPath) && ext === '.tsx') {
-          const builtFile = await buildFile(path, config.outDir, config.srcDir);
-          if (builtFile) {
-            stream.send(JSON.stringify({ file: builtFile, version }));
+        if (path.startsWith(srcPath)) {
+          if (ext === '.tsx') {
+            const builtFile = await buildFile(path, config.outDir, config.srcDir);
+            if (builtFile) {
+              stream.send(JSON.stringify({ file: builtFile, version }));
+            }
+          } else if (ext === '.css') {
+            // For scoped CSS, send the original file path
+            // const relativePath = relative(srcPath, path);
+            // stream.send(JSON.stringify({ file: '/src/' + relativePath, version }));
+            const file = Bun.file(path)
+            const cssContent = await file.text()
+            log.info(cssContent)
+            stream.send(JSON.stringify({ file: '@scope '+cssContent+' .css', version }))
           }
         } else if (path.startsWith(publicPath)) {
           const relativePath = relative(publicPath, path);
