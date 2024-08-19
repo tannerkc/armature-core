@@ -73,6 +73,15 @@ export async function createServer() {
     });
     
     app.get('*', async (c) => {
+      if (c.request.url.endsWith('/global.css')) {
+        const cssPath = join(publicFolder, 'global.css');
+        const cssFile = Bun.file(cssPath);
+        const cssContent = await cssFile.text();
+        
+        return new Response(cssContent, {
+          headers: { 'Content-Type': 'text/css' }
+        });
+      }
       return handleClientRequest(c)
     }, {
       beforeHandle: staticPlugin

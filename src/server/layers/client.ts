@@ -6,20 +6,20 @@ import sveltePlugin from "../plugins/sveltePlugin";
 import { minifySync } from "@swc/core";
 import debug from "../../utils/debug";
 
-const routeCache = new Map<string, { filePath: string; params: Record<string, string> } | null>();
+const routeCache = new Map<string, { filePath: string | null; params: Record<string, string> } | null>();
 const buildCache = new Map<string, any>();
 
-const findMatchingRoute = async (urlPath: string): Promise<{ filePath: string; params: Record<string, string> } | null> => {
-  // if (routeCache.has(urlPath)) {
+const findMatchingRoute = async (urlPath: string): Promise<{ filePath: string | null, params: Record<string, string> }> => {
+    // if (routeCache.has(urlPath)) {
   //   return routeCache.get(urlPath)!;
   // }
 
   debug(`Finding matching Route for path: ${urlPath}`)
-
+  
   const parts = urlPath.split('/').filter(Boolean);
   let currentPath = normalize(join(process.cwd(), 'src', 'routes'));
   let params: Record<string, string> = {};
-
+  
   if (parts.length === 0) {
     const indexPath = join(currentPath, 'index.tsx');
     if (existsSync(indexPath)) {
@@ -27,14 +27,15 @@ const findMatchingRoute = async (urlPath: string): Promise<{ filePath: string; p
       routeCache.set(urlPath, result);
       return result;
     }
-    routeCache.set(urlPath, null);
-    return null;
+    const result = { filePath: null, params };
+    routeCache.set(urlPath, result);
+    return result;
   }
-  
+
   for (let i = 0; i < parts.length; i++) {
     const isLast = i === parts.length - 1;
     const segment = parts[i];
-    
+
     let possiblePath = normalize(join(currentPath, segment));
     if (isLast) {
       if (existsSync(`${possiblePath}.tsx`)) {
@@ -50,10 +51,11 @@ const findMatchingRoute = async (urlPath: string): Promise<{ filePath: string; p
     }
     
     const files = await readdir(currentPath);
-    const dynamicSegment = files.find(file => file.startsWith('[') && file.endsWith(']'));
+    const directories = files.filter(file => !file.includes('.'));
+    const dynamicSegment = directories.find(file => file.startsWith('[') && file.endsWith(']'));
     
-    if (dynamicSegment) {
-      const paramName = dynamicSegment.slice(1, -1);
+    if (dynamicSegment && !segment.includes('.')) {
+      const paramName = dynamicSegment.slice(1, -1); 
       params[paramName] = segment;
       possiblePath = normalize(join(currentPath, dynamicSegment));
       if (isLast) {
@@ -72,13 +74,15 @@ const findMatchingRoute = async (urlPath: string): Promise<{ filePath: string; p
     } else if (existsSync(possiblePath)) {
       currentPath = possiblePath;
     } else {
-      routeCache.set(urlPath, null);
-      return null;
+      const result = { filePath: null, params };
+      routeCache.set(urlPath, result);
+      return result;
     }
   }
   
-  routeCache.set(urlPath, null);
-  return null;
+  const result = { filePath: null, params };
+  routeCache.set(urlPath, result);
+  return result;
 };
 
 const getPlugins = () => {
@@ -94,6 +98,7 @@ const streamResponse = (htmlStart: string, cssContent: string, jsContent: string
       controller.enqueue(`<style>${cssContent}</style>`);
       controller.enqueue(htmlEnd);
       controller.enqueue(`<script type="module">${jsContent}</script>`);
+      // controller.enqueue(`<script type="module">${hydrationScript}</script>`);
       controller.close();
     }
   });
@@ -115,25 +120,17 @@ export const handleClientRequest = async (c: any) => {
     const htmlContent = await htmlFile.text();
     const [htmlStart, htmlEnd] = htmlContent.split('</head>');
 
-    let routePath: string | null;
-    let params: Record<string, string> = {};
+    let routeInfo: { filePath: string | null, params: Record<string, string>};
     try {
-      // routePath = await findMatchingRoute(url.pathname);
-      const result = await findMatchingRoute(url.pathname);
-      if (result) {
-        routePath = result.filePath;
-        params = result.params;
-      } else {
-        routePath = null;
-      }
-    } catch (error: any) {
+      routeInfo = await findMatchingRoute(url.pathname);
+    } catch (error) {
       log.error('Route resolution error:' + error);
-      return new Response('Route not found: '+error, { status: 404 });
+      return new Response('Route not found', { status: 404 });
     }
 
-    debug(`Attempting to import route from: ${routePath}`);
+    debug(`Attempting to import route from: ${routeInfo.filePath}`);
   
-    if (!routePath) {
+    if (!routeInfo.filePath) {
       debug(`Route file not found for: ${url.pathname}`);
       return new Response('Not Found', { status: 404 });
     }
@@ -142,17 +139,17 @@ export const handleClientRequest = async (c: any) => {
       
     let js;
     try {
-      if (buildCache.has(routePath)) {
-        js = buildCache.get(routePath);
+      if (buildCache.has(routeInfo.filePath)) {
+        js = buildCache.get(routeInfo.filePath);
       } else {
         js = await Bun.build({
-          entrypoints: [routePath],
+          entrypoints: [routeInfo.filePath],
           minify: true,
           outdir: compilePath,
           splitting: true,
           plugins: getPlugins(),
         });
-        // buildCache.set(routePath, js);
+        // buildCache.set(routeInfo.filePath, js);
       }
     } catch (error: any) {
       log.error('Build error:' + error);
@@ -174,14 +171,16 @@ export const handleClientRequest = async (c: any) => {
         const regex = /export\{([a-zA-Z]{2})\s+as\s+default\};/;
         const match = jsContent.match(regex);
         const componentName = match?.[1];
+
+        debug(JSON.stringify(routeInfo.params))
   
         let hydrateScript = `
-        function hydrate(element, container) {
+        function hydrate(element, container, params) {
           if (container) {
-              container.innerHTML = element().string;
+              container.innerHTML = element(params).string;
           }
         }
-        hydrate(${componentName}, document.querySelector('div[app]'))
+        hydrate(${componentName}, document.querySelector('div[app]'), ${JSON.stringify(routeInfo.params)})
         `.trim();
         hydrateScript = minifySync(hydrateScript).code;
 
@@ -203,8 +202,6 @@ export const handleClientRequest = async (c: any) => {
     windowErrorScript = minifySync(windowErrorScript).code;
     
     jsContent += windowErrorScript;
-    const paramsScript = `window.__ROUTE_PARAMS__ = ${JSON.stringify(params)};`;
-    jsContent += paramsScript;
 
     return streamResponse(htmlStart, cssContent, jsContent, htmlEnd);
   } catch (error: any) {
