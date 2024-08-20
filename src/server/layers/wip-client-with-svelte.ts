@@ -20,9 +20,16 @@ const findMatchingRoute = async (urlPath: string): Promise<{ filePath: string | 
   let params: Record<string, string> = {};
   
   if (parts.length === 0) {
-    const indexPath = join(currentPath, 'index.tsx');
-    if (existsSync(indexPath)) {
-      const result = { filePath: indexPath, params };
+    // Check for index.tsx or index.svelte at the root
+    const indexTsxPath = join(currentPath, 'index.tsx');
+    const indexSveltePath = join(currentPath, 'index.svelte');
+    if (existsSync(indexTsxPath)) {
+      const result = { filePath: indexTsxPath, params };
+      routeCache.set(urlPath, result);
+      return result;
+    }
+    if (existsSync(indexSveltePath)) {
+      const result = { filePath: indexSveltePath, params };
       routeCache.set(urlPath, result);
       return result;
     }
@@ -37,13 +44,24 @@ const findMatchingRoute = async (urlPath: string): Promise<{ filePath: string | 
 
     let possiblePath = normalize(join(currentPath, segment));
     if (isLast) {
+      // Check for .tsx or .svelte files
       if (existsSync(`${possiblePath}.tsx`)) {
         const result = { filePath: `${possiblePath}.tsx`, params };
         routeCache.set(urlPath, result);
         return result;
       }
+      if (existsSync(`${possiblePath}.svelte`)) {
+        const result = { filePath: `${possiblePath}.svelte`, params };
+        routeCache.set(urlPath, result);
+        return result;
+      }
       if (existsSync(join(possiblePath, 'index.tsx'))) {
         const result = { filePath: join(possiblePath, 'index.tsx'), params };
+        routeCache.set(urlPath, result);
+        return result;
+      }
+      if (existsSync(join(possiblePath, 'index.svelte'))) {
+        const result = { filePath: join(possiblePath, 'index.svelte'), params };
         routeCache.set(urlPath, result);
         return result;
       }
@@ -63,8 +81,18 @@ const findMatchingRoute = async (urlPath: string): Promise<{ filePath: string | 
           routeCache.set(urlPath, result);
           return result;
         }
+        if (existsSync(`${possiblePath}.svelte`)) {
+          const result = { filePath: `${possiblePath}.svelte`, params };
+          routeCache.set(urlPath, result);
+          return result;
+        }
         if (existsSync(join(possiblePath, 'index.tsx'))) {
           const result = { filePath: join(possiblePath, 'index.tsx'), params };
+          routeCache.set(urlPath, result);
+          return result;
+        }
+        if (existsSync(join(possiblePath, 'index.svelte'))) {
+          const result = { filePath: join(possiblePath, 'index.svelte'), params };
           routeCache.set(urlPath, result);
           return result;
         }
@@ -83,7 +111,6 @@ const findMatchingRoute = async (urlPath: string): Promise<{ filePath: string | 
   routeCache.set(urlPath, result);
   return result;
 };
-
 const getPlugins = () => {
   return [];
 };
@@ -169,7 +196,8 @@ export const handleClientRequest = async (c: any) => {
       if (output.kind === "entry-point") {
         jsContent = await output.text();
 
-        const regex = /export\{([a-zA-Z]{2})\s+as\s+default\};/;
+        // const regex = /export\{([a-zA-Z]{2})\s+as\s+default\};/;
+        const regex = /export\{([a-zA-Z_]{2})\s+as\s+default\};/;
         const match = jsContent.match(regex);
         const componentName = match?.[1];
 
@@ -180,8 +208,9 @@ export const handleClientRequest = async (c: any) => {
           const params = JSON.stringify(${JSON.stringify(routeInfo.params)});
           // container.dataset.params = params;
           function hydrate(element, container, params) {
+            console.log(element.render())
             if (container) {
-              container.innerHTML = element(params).string;
+              container.innerHTML = typeof element === 'function' ? element(params).string : element.render().html + '<style>' + element.render().css.code + '</style>'+ '<script>' + element.render().css.map + '</script>';
             }
           }
           hydrate(${componentName}, container, params)

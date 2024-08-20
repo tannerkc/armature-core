@@ -32,7 +32,7 @@
     "baseUrl": ".",
 
     "jsx": "react-jsx",
-    "jsxImportSource": "jsx-to-html-runtime",
+    "jsxImportSource": "effective-jsx",
   },
   "include": ["./**/*"],
   "exclude": ["./node_modules", "example", "dist", "plugins"]

@@ -1,2 +1,2 @@
-export { jsx, jsxs, jsxDEV, type JSX } from "jsx-to-html-runtime";
+export { jsx, jsxs, jsxDEV, type JSX } from "effective-jsx";
 declare module 'armature-core/jsx-runtime' 
