@@ -1,4 +1,3 @@
-import { inspect } from 'bun';
 import chalk from 'chalk';
 
 type LogLevel = 'base' | 'info' | 'warn' | 'error' | 'debug';
@@ -41,7 +40,7 @@ class Logger {
 
   private formatMessage(message: any): string {
     if (typeof message === 'object') {
-      return inspect(message);
+      return Bun.inspect(message);
     }
     return message.toString();
   }

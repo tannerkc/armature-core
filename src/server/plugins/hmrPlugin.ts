@@ -4,7 +4,7 @@ import chokidar from 'chokidar';
 import { join, extname, relative, dirname } from 'path';
 import { debug, log } from '../../';
 import { build } from 'bun';
-import { ignoreCssPlugin } from './ignoreCss';
+import { ignoreCssPlugin } from './ignoreCssPlugin';
 import { minifySync } from '@swc/core';
 
 interface HMRConfig {

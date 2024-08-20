@@ -18,10 +18,11 @@ export const handleHydrationRequest = async (c: any) => {
       const file = join(process.cwd(), filePath)
 
       if(!existsSync(file)) return new Response('Not Found', { status: 404 });
-        
+      
+      debug(`File found: ${file}`)
+      
       let jsFile = Bun.file(file);
       let jsContent = await jsFile.text();
-      jsContent = minifySync(jsContent).code
     
       return new Response(jsContent, {
         headers: { 'Content-Type': 'application/javascript' }

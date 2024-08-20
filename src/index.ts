@@ -1,4 +1,9 @@
+import { edenFetch, edenTreaty } from "@elysiajs/eden"
 import Logger from "./lib/logger";
+import { config } from "../index";
+
+export const server = edenTreaty(config.server.url)
+export const serverFetch = edenFetch(config.server.url)
 
 export const log = new Logger({
     prefix: '[armature]',
@@ -12,7 +17,15 @@ export const log = new Logger({
     },
 });
 
+export { onMount } from './lifecycle/mount'
+
 import debug from "./utils/debug"
 export { debug }
 
 export const isProduction = process.env.NODE_ENV === 'production'
+
+const Armature = {
+
+}
+
+export default Armature

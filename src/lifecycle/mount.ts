@@ -15,11 +15,10 @@ function runMountEffects() {
       // (e.g., if we implement an unmount lifecycle in the future)
     }
   });
-  // Clear the effects after running them
+  
   mountEffects.length = 0;
 }
 
-// Run effects when the DOM is ready
 if (typeof window !== 'undefined') {
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', runMountEffects);
