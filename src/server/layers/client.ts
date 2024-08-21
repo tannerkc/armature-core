@@ -4,6 +4,7 @@ import { appendFile, readdir } from 'node:fs/promises';
 import { join, normalize, relative } from "path";
 import { minifySync } from "@swc/core";
 import debug from "../../utils/debug";
+import { hashFilePath } from "src/utils/crypto";
 
 const routeCache = new Map<string, { filePath: string | null; params: Record<string, string> } | null>();
 const buildCache = new Map<string, any>();
@@ -174,17 +175,31 @@ export const handleClientRequest = async (c: any) => {
         const componentName = match?.[1];
 
         debug(JSON.stringify(routeInfo.params))
-  
+
+        const componentId = hashFilePath(relative(process.cwd(), output.path))
+
         let hydrateScript = `
-          const container = document.querySelector('div[app]');
-          const params = JSON.stringify(${JSON.stringify(routeInfo.params)});
-          // container.dataset.params = params;
-          function hydrate(element, container, params) {
-            if (container) {
-              container.innerHTML = element(params).string;
+            const container = document.querySelector('div[app]');
+            const params = JSON.stringify(${JSON.stringify(routeInfo.params)});
+            const componentId = "${componentId}";
+            function hydrate(element, container, params, componentId) {
+                if (container) {
+                    const componentHtml = element(params).string;
+                    const div = document.createElement('div');
+                    div.innerHTML = componentHtml;
+                    div.dataset.params = params;
+        
+                    div.firstElementChild.setAttribute('data-c-arm-id', componentId);
+        
+                    const oldComponent = container.querySelector(\`[data-c-arm-id="\${componentId}"]\`);
+                    if (oldComponent) {
+                        container.replaceChild(div.firstElementChild, oldComponent);
+                    } else {
+                        container.appendChild(div.firstElementChild);
+                    }
+                }
             }
-          }
-          hydrate(${componentName}, container, params)
+            hydrate(${componentName}, container, params, componentId);
         `.trim();
         hydrateScript = minifySync(hydrateScript).code;
 

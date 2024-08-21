@@ -1,4 +1,2 @@
-import { useState } from './useState'
-
+export { useState } from 'effective-jsx'
 export { onMount } from '../lifecycle/mount'
-export { useState }

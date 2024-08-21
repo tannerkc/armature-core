@@ -69,14 +69,14 @@ function clientSSECode(config: HMRConfig): string {
 
       const updateCSS = (file, version) => {
         if (!file.startsWith('@scope')) {
-          const link = document.querySelector('link[rel="stylesheet"][href*="'+file+'"]');
-          if (link) {
-            const newLink = document.createElement("link");
-            newLink.rel = "stylesheet";
-            newLink.href = link.href.split("?")[0] + "?v=" + version;
-            newLink.onload = () => link.remove();
-            link.parentNode.insertBefore(newLink, link.nextSibling);
-          }
+        const link = document.querySelector('link[rel="stylesheet"][href*="'+file+'"]');
+        if (link) {
+          const newLink = document.createElement("link");
+          newLink.rel = "stylesheet";
+          newLink.href = link.href.split("?")[0] + "?v=" + version;
+          newLink.onload = () => link.remove();
+          link.parentNode.insertBefore(newLink, link.nextSibling);
+        }
         } else {
           const styleElement = document.querySelector('style[data-hmr]');
           const newContent = file.replace('@scope ','').replace(' .css','');
@@ -91,21 +91,60 @@ function clientSSECode(config: HMRConfig): string {
         }
       };
 
-      const updateJS = async (file, version) => {
-        const correctedFile = file.replace('/src/', '/');
-        try {
-          const module = await import('/' + correctedFile + '?v=' + version);
-          if (typeof module.default === 'function') {
-            const container = document.querySelector('div[app]');
-            if (container) {
-              const params = JSON.parse(container.dataset.params || '{}');
-              container.innerHTML = module.default(params).string;
-            }
-          }
-        } catch(error) {
-          console.error('Error updating compiled module:', error);
+      const hashFilePath = async (filePath) => {
+        if (typeof window !== 'undefined' && window.crypto && window.crypto.subtle) {
+            // Browser environment
+            const encoder = new TextEncoder();
+            const data = encoder.encode(filePath);
+            const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            return hashHex.slice(0, 12).toString();
+        } else if (typeof Bun !== 'undefined' && Bun.crypto) {
+            // Bun.js server environment
+            const hash = Bun.crypto.subtle.digestSync('SHA-256', new TextEncoder().encode(filePath));
+            const hashArray = Array.from(new Uint8Array(hash));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            return hashHex.slice(0, 12);
+        } else {
+            throw new Error('Unsupported environment');
         }
       };
+
+      function hydrate(element, container, params, componentId) {
+          if (container) {
+              const componentHtml = element(params).string;
+              const div = document.createElement('div');
+              div.innerHTML = componentHtml;
+              div.dataset.params = params;
+  
+              div.firstElementChild.setAttribute('data-c-arm-id', componentId);
+  
+              const oldComponent = container.querySelector(\`[data-c-arm-id="\${componentId}"]\`);
+              if (oldComponent) {
+                  container.replaceChild(div.firstElementChild, oldComponent);
+              } else {
+                  container.appendChild(div.firstElementChild);
+              }
+          }
+      }
+
+      const updateJS = async (file, version) => {
+        try {
+            const module = await import('/' + file + '?v=' + version);
+            if (typeof module.default === 'function') {
+                const container = document.querySelector('div[app]');
+                if (container) {
+                    const componentId = await hashFilePath(file)
+                    const params = JSON.parse(container.dataset.params || '{}');
+                    hydrate(module.default, container, params, componentId);
+                }
+            }
+        } catch(error) {
+            console.error('Error updating compiled module:', error);
+        }
+      };
+
 
       const checkForUpdates = () => {
         const currentPath = window.location.pathname;
@@ -153,7 +192,7 @@ async function buildFile(filePath: string, outDir: string, srcDir: string): Prom
 
     if (!result.success) {
       log.error('Build failed:');
-      log.error(result)
+      log.error(result);
       return null;
     }
 
@@ -161,7 +200,7 @@ async function buildFile(filePath: string, outDir: string, srcDir: string): Prom
     return entryPoint ? relative(process.cwd(), entryPoint.path) : null;
   } catch (error) {
     log.error('Build error:');
-    log.error(error)
+    log.error(error);
     return null;
   }
 }
