@@ -1,33 +1,34 @@
 import { isProduction, log } from "../../index";
 import { existsSync } from "fs";
 import { appendFile, readdir } from 'node:fs/promises';
-import { join, normalize, relative } from "path";
+import { join, normalize, relative, dirname } from "path";
 import { minifySync } from "@swc/core";
 import debug from "../../utils/debug";
-import { hashFilePath } from "src/utils/crypto";
+import { hashFilePath } from "../../utils/crypto";
 
-const routeCache = new Map<string, { filePath: string | null; params: Record<string, string> } | null>();
+const routeCache = new Map<string, { filePath: string | null; params: Record<string, string>; layout: string | null } | null>();
 const buildCache = new Map<string, any>();
 
-const findMatchingRoute = async (urlPath: string): Promise<{ filePath: string | null, params: Record<string, string> }> => {
-    // if (routeCache.has(urlPath)) {
+const findMatchingRoute = async (urlPath: string): Promise<{ filePath: string | null, params: Record<string, string>, layout: string | null }> => {
+  debug(`Finding matching Route for path: ${urlPath}`)
+  
+  // if (routeCache.has(urlPath)) {
   //   return routeCache.get(urlPath)!;
   // }
 
-  debug(`Finding matching Route for path: ${urlPath}`)
-  
   const parts = urlPath.split('/').filter(Boolean);
   let currentPath = normalize(join(process.cwd(), 'src', 'routes'));
   let params: Record<string, string> = {};
-  
+  let layout: string | null = null;
+
   if (parts.length === 0) {
     const indexPath = join(currentPath, 'index.tsx');
     if (existsSync(indexPath)) {
-      const result = { filePath: indexPath, params };
+      const result = { filePath: indexPath, params, layout: null };
       routeCache.set(urlPath, result);
       return result;
     }
-    const result = { filePath: null, params };
+    const result = { filePath: null, params, layout: null };
     routeCache.set(urlPath, result);
     return result;
   }
@@ -39,12 +40,14 @@ const findMatchingRoute = async (urlPath: string): Promise<{ filePath: string | 
     let possiblePath = normalize(join(currentPath, segment));
     if (isLast) {
       if (existsSync(`${possiblePath}.tsx`)) {
-        const result = { filePath: `${possiblePath}.tsx`, params };
+        const hasLocalLayout = await existsSync(join(dirname(possiblePath), 'layout.tsx'));
+        const result = { filePath: `${possiblePath}.tsx`, params, layout: hasLocalLayout ? join(dirname(possiblePath), 'layout.tsx') : null };
         routeCache.set(urlPath, result);
         return result;
       }
       if (existsSync(join(possiblePath, 'index.tsx'))) {
-        const result = { filePath: join(possiblePath, 'index.tsx'), params };
+        const hasLocalLayout = await existsSync(join(possiblePath, 'layout.tsx'));
+        const result = { filePath: join(possiblePath, 'index.tsx'), params, layout: hasLocalLayout ? join(possiblePath, 'layout.tsx') : null };
         routeCache.set(urlPath, result);
         return result;
       }
@@ -60,12 +63,14 @@ const findMatchingRoute = async (urlPath: string): Promise<{ filePath: string | 
       possiblePath = normalize(join(currentPath, dynamicSegment));
       if (isLast) {
         if (existsSync(`${possiblePath}.tsx`)) {
-          const result = { filePath: `${possiblePath}.tsx`, params };
+          const hasLocalLayout = await existsSync(join(dirname(possiblePath), 'layout.tsx'));
+          const result = { filePath: `${possiblePath}.tsx`, params, layout: hasLocalLayout ? join(dirname(possiblePath), 'layout.tsx') : null };
           routeCache.set(urlPath, result);
           return result;
         }
         if (existsSync(join(possiblePath, 'index.tsx'))) {
-          const result = { filePath: join(possiblePath, 'index.tsx'), params };
+          const hasLocalLayout = await existsSync(join(possiblePath, 'layout.tsx'));
+          const result = { filePath: join(possiblePath, 'index.tsx'), params, layout: hasLocalLayout ? join(possiblePath, 'layout.tsx') : null };
           routeCache.set(urlPath, result);
           return result;
         }
@@ -74,13 +79,13 @@ const findMatchingRoute = async (urlPath: string): Promise<{ filePath: string | 
     } else if (existsSync(possiblePath)) {
       currentPath = possiblePath;
     } else {
-      const result = { filePath: null, params };
+      const result = { filePath: null, params, layout: null };
       routeCache.set(urlPath, result);
       return result;
     }
   }
   
-  const result = { filePath: null, params };
+  const result = { filePath: null, params, layout: null };
   routeCache.set(urlPath, result);
   return result;
 };
@@ -122,7 +127,7 @@ export const handleClientRequest = async (c: any) => {
     const htmlContent = await htmlFile.text();
     const [htmlStart, htmlEnd] = htmlContent.split('</head>');
 
-    let routeInfo: { filePath: string | null, params: Record<string, string>};
+    let routeInfo: { filePath: string | null, params: Record<string, string>, layout: string | null };
     try {
       routeInfo = await findMatchingRoute(url.pathname);
     } catch (error) {
@@ -170,36 +175,38 @@ export const handleClientRequest = async (c: any) => {
       if (output.kind === "entry-point") {
         jsContent = await output.text();
 
-        const regex = /export\{([a-zA-Z]{2})\s+as\s+default\};/;
+        const regex = /export\s*\{\s*(\w+)\s+as\s+default\s*\}\s*;/;
         const match = jsContent.match(regex);
         const componentName = match?.[1];
-
-        debug(JSON.stringify(routeInfo.params))
 
         const componentId = hashFilePath(relative(process.cwd(), output.path))
 
         let hydrateScript = `
             const container = document.querySelector('div[app]');
-            const params = JSON.stringify(${JSON.stringify(routeInfo.params)});
+            const params = ${JSON.stringify(routeInfo.params)};
             const componentId = "${componentId}";
-            function hydrate(element, container, params, componentId) {
-                if (container) {
-                    const componentHtml = element(params).string;
-                    const div = document.createElement('div');
-                    div.innerHTML = componentHtml;
-                    div.dataset.params = params;
-        
-                    div.firstElementChild.setAttribute('data-c-arm-id', componentId);
-        
-                    const oldComponent = container.querySelector(\`[data-c-arm-id="\${componentId}"]\`);
-                    if (oldComponent) {
-                        container.replaceChild(div.firstElementChild, oldComponent);
-                    } else {
-                        container.appendChild(div.firstElementChild);
-                    }
+            const hydrate = async (element, container, params, componentId) => {
+              if (container) {
+                const component = await element(params);
+                const componentHtml = component.string
+                const div = document.createElement('div');
+                div.innerHTML = componentHtml;
+                div.dataset.params = params;
+    
+                div.firstElementChild.setAttribute('data-c-arm-id', componentId);
+    
+                const oldComponent = container.querySelector(\`[data-c-arm-id="\${componentId}"]\`);
+                if (oldComponent) {
+                    container.replaceChild(div.firstElementChild, oldComponent);
+                } else {
+                    container.appendChild(div.firstElementChild);
                 }
+              }
             }
-            hydrate(${componentName}, container, params, componentId);
+
+            const Layout = ${routeInfo.layout ? `await import("${routeInfo.layout}").then(mod => mod.default)` : 'null'};
+
+            hydrate((params) => Layout ? Layout({ children: ${componentName}(params) }) : ${componentName}(params), container, params, componentId);
         `.trim();
         hydrateScript = minifySync(hydrateScript).code;
 

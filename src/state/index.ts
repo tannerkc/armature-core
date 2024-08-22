@@ -1,2 +1,3 @@
-export { useState } from 'effective-jsx'
+export { useState } from './useState'
+export { usePersistentState } from './usePersistentState'
 export { onMount } from '../lifecycle/mount'

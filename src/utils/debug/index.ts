@@ -1,4 +1,4 @@
-import { config } from "index"
+import { config } from "../../../index"
 import { log } from "../../index"
 
 const debug = (logContext: any, enabled?: boolean | undefined) => {

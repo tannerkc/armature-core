@@ -130,24 +130,6 @@ function clientSSECode(config: HMRConfig): string {
           }
       }
 
-      const updateJS = async (file, version) => {
-        window.location.reload() // tmp solution
-        try {
-            const module = await import('/' + file + '?v=' + version);
-            if (typeof module.default === 'function') {
-                const container = document.querySelector('div[app]');
-                if (container) {
-                    const componentId = await hashFilePath(file)
-                    const params = JSON.parse(container.dataset.params || '{}');
-                    hydrate(module.default, container, params, componentId);
-                }
-            }
-        } catch(error) {
-            console.error('Error updating compiled module:', error);
-        }
-      };
-
-
       const checkForUpdates = () => {
         const currentPath = window.location.pathname;
         const storedVersions = JSON.parse(sessionStorage.getItem('routeVersions') || '{}');
@@ -179,34 +161,6 @@ function clientSSECode(config: HMRConfig): string {
   `;
 }
 
-async function buildFile(filePath: string, outDir: string, srcDir: string): Promise<string | null> {
-  try {
-    const relativePath = relative(srcDir, filePath);
-    const outPath = join(outDir, relativePath.replace(/\.tsx?$/, '.js'));
-    
-    const result = await build({
-      entrypoints: [filePath],
-      outdir: dirname(outPath),
-      minify: true,
-      splitting: true,
-      plugins: [ignoreCssPlugin()],
-    });
-
-    if (!result.success) {
-      log.error('Build failed:');
-      log.error(result);
-      return null;
-    }
-
-    const entryPoint = result.outputs.find(output => output.kind === "entry-point");
-    return entryPoint ? relative(process.cwd(), entryPoint.path) : null;
-  } catch (error) {
-    log.error('Build error:');
-    log.error(error);
-    return null;
-  }
-}
-
 function createWatcher(config: HMRConfig) {
   return (stream: Stream<string>) => {
     const srcPath = join(process.cwd(), config.srcDir);
@@ -220,17 +174,11 @@ function createWatcher(config: HMRConfig) {
 
     watcher.on('all', async (event, path) => {
       if (event === 'change' || event === 'add') {
-        debug(`${event} detected: ${path}`);
         const ext = extname(path);
         const version = Date.now().toString();
         
         if (path.startsWith(srcPath)) {
-          if (ext === '.tsx') {
-            const builtFile = await buildFile(path, config.outDir, config.srcDir);
-            if (builtFile) {
-              stream.send(JSON.stringify({ file: builtFile, version }));
-            }
-          } else if (ext === '.css') {
+          if (ext === '.css') {
             const file = Bun.file(path);
             const cssContent = await file.text();
             stream.send(JSON.stringify({ file: `@scope ${cssContent} .css`, version }));

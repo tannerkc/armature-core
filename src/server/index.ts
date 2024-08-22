@@ -3,12 +3,13 @@ import { swagger } from '@elysiajs/swagger'
 import { jwt } from '@elysiajs/jwt'
 import { join } from 'path';
 import { createStaticMiddleware, handleCssRequest } from './middleware/staticMiddleware';
-import { debug, log } from '..';
+import { debug, isProduction, log } from '..';
 import { handleClientRequest } from './layers/client';
 import { config } from '../../index';
 import { loadApiModules } from './layers/api';
 import { handleHydrationRequest } from './layers/hydration';
 import { hmr } from './plugins/hmrPlugin';
+import { ensureFolderExists } from '../utils/fs';
 
 const publicFolder = join(process.cwd(), 'public')
 
@@ -24,10 +25,15 @@ export async function createServer() {
   const apiMap = await loadApiModules()
   const staticProvider = createStaticMiddleware(publicFolder)
 
-  app.use(hmr({
-    srcDir: './src',
-    outDir: './.armature',
-  }))
+  ensureFolderExists('.armature');
+
+  if (!isProduction) {
+    app.use(hmr({
+      srcDir: './src',
+      outDir: './.armature',
+    }))
+  }
+
 
   debug(apiMap)
 
