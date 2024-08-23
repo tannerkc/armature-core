@@ -6,4 +6,5 @@ export const server = treaty<App>('http://localhost:3000/api')
 export const serverFetch = edenFetch<App>('http://localhost:3000/api')
 
 export * from '../state'
-export { onMount } from '../lifecycle/mount'
+export * from '../client'
+export * from '../lifecycle'

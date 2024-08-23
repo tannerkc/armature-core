@@ -1,8 +1,11 @@
-import { generateUniqueId } from "src/lib/generateId";
+import { generateUniqueId } from "../lib/generateId";
 
 let currentSubscriber: Function | null = null;
 
-export const useState = <T>(initialValue?: T): [() => T | undefined, (newValue: T) => void] => {
+export const useState: {
+  <T>(): [() => T | undefined, (newValue: T) => void];
+  <T>(initialValue: T): [() => T, (newValue: T) => void];
+} = <T>(initialValue?: T): [() => T | undefined, (newValue: T) => void] => {
   let value = initialValue;
   const signature = generateUniqueId();
   const subscribers = new Set<Function>();
@@ -34,7 +37,7 @@ export const useState = <T>(initialValue?: T): [() => T | undefined, (newValue: 
 };
 
 export const usePersistentState = <T>(key: string, initialValue?: T): [
-    (() => T | undefined),
+    (() => T),
     (newValue: T) => void
   ] => {
     const signature = generateUniqueId();
