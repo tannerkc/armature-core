@@ -1,6 +1,6 @@
 {
   "name": "armature-core",
-  "version": "0.2.5",
+  "version": "0.2.7",
   "description": "A fullstack web framework using Bun",
   "main": "dist/src/index.js",
   "module": "dist/src/index.js",

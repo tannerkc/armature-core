@@ -12,7 +12,6 @@ export const useState: {
 
   const get = () => {
     if (currentSubscriber) {
-      console.log(currentSubscriber)
       subscribers.add(currentSubscriber);
     }
     return value;
@@ -36,7 +35,11 @@ export const useState: {
   return [get, set];
 };
 
-export const usePersistentState = <T>(key: string, initialValue?: T): [
+
+export const usePersistentState: {
+  <T>(key: string): [() => T, (newValue: T) => void];
+  <T>(key: string, initialValue: T): [() => T, (newValue: T) => void];
+} = <T>(key: string, initialValue?: T): [
     (() => T),
     (newValue: T) => void
   ] => {

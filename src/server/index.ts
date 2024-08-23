@@ -9,89 +9,73 @@ import { config } from '../../index';
 import { loadApiModules } from './layers/api';
 import { handleHydrationRequest } from './layers/hydration';
 import { hmr } from './plugins/hmrPlugin';
-import { ensureFolderExists } from '../utils/fs';
 
 const publicFolder = join(process.cwd(), 'public')
 
 const jwtConfig = config.jwt || {}
 const swaggerConfig = config.api
 
-const app = new Elysia();
-// Middleware
-app.use(swagger(swaggerConfig))
-if (jwtConfig.name && jwtConfig.secret) app.use(jwt(jwtConfig))
 const apiMap = await loadApiModules()
 const staticProvider = createStaticMiddleware(publicFolder)
 
-ensureFolderExists('.armature');
-
-if (!isProduction) {
-  app.use(hmr({
-    srcDir: './src',
-    outDir: './.armature',
+const app = new Elysia()
+  .use(swagger(swaggerConfig))
+  .use(jwt(jwtConfig))
+  .use(hmr({
+      srcDir: './src',
+      outDir: './.armature',
   }))
-}
-
-debug(apiMap)
-
-// Derive
-app.derive(({ headers }) => {
-  const auth = headers['authorization']
-
-  return {
-      bearer: auth?.startsWith('Bearer ') ? auth.slice(7) : null
-  }
-})
-
-// API Layer
-app.group('/api', (app) => {
-  // TODO: consider refactor lazy loaded modules
-  for (const [routePath, handlers] of apiMap.entries()) {
-    if (handlers.GET) {
-      const handler = handlers.GET
-      app.get(routePath, typeof handler === "function" ? handler : handler.handler, {
-        ...handler.document
-      });
+  .derive(({ headers }) => {
+      const auth = headers['authorization'];
+      return {
+          bearer: auth?.startsWith('Bearer ') ? auth.slice(7) : null
+      };
+  })
+  .group('/api', (app) => {
+    // TODO: consider refactor lazy loaded modules
+    // TODO: fix Elysia Eden type safety
+    for (const [routePath, handlers] of apiMap.entries()) {
+      if (handlers.GET) {
+        const handler = handlers.GET
+        app.get(routePath, typeof handler === "function" ? handler : handler.handler, {
+          ...handler.document
+        });
+      }
+      if (handlers.POST) {
+        const handler = handlers.POST
+        app.post(routePath, typeof handler === "function" ? handler : handler.handler, {
+          ...handler.document
+        });
+      }
+      if (handlers.DELETE) {
+        const handler = handlers.DELETE
+        app.delete(routePath, typeof handler === "function" ? handler : handler.handler, {
+          ...handler.document
+        });
+      }
+      if (handlers.PUT) {
+        const handler = handlers.PUT
+        app.put(routePath, typeof handler === "function" ? handler : handler.handler, {
+          ...handler.document
+        });
+      }
     }
-    if (handlers.POST) {
-      const handler = handlers.POST
-      app.post(routePath, typeof handler === "function" ? handler : handler.handler, {
-        ...handler.document
-      });
+    return app
+  })
+  
+  app.get('/.armature/*', handleHydrationRequest)
+  app.get('*', async (c) => {
+    if (c.request.url.endsWith('/global.css')) {
+      return await handleCssRequest(c, publicFolder);
     }
-    if (handlers.DELETE) {
-      const handler = handlers.DELETE
-      app.delete(routePath, typeof handler === "function" ? handler : handler.handler, {
-        ...handler.document
-      });
-    }
-    if (handlers.PUT) {
-      const handler = handlers.PUT
-      app.put(routePath, typeof handler === "function" ? handler : handler.handler, {
-        ...handler.document
-      });
-    }
-  }
-  return app
-});
 
-// Hydration
-app.get('/.armature/*', handleHydrationRequest)
-
-// Client Layer
-app.get('*', async (c) => {
-  if (c.request.url.endsWith('/global.css')) {
-    return await handleCssRequest(c, publicFolder);
-  }
-
-  return await handleClientRequest(c)
-}, {
-  beforeHandle: staticProvider
-});
-
-app.onError(({ code }) => {
-  if (code === 'NOT_FOUND') return 'Route not found :('
-})
+    return await handleClientRequest(c)
+  }, {
+    beforeHandle: staticProvider
+  })
+  .onError(({ code }) => {
+    if (code === 'NOT_FOUND') return 'Route not found :('
+  })
 
 export async function createServer() {
   const port = config?.server?.url ? new URL(config.server.url).port : 3000;

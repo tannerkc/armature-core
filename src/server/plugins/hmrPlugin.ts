@@ -2,7 +2,8 @@ import { Elysia } from 'elysia';
 import { Stream } from '@elysiajs/stream';
 import chokidar from 'chokidar';
 import { join, extname, relative, dirname } from 'path';
-import { debug, log } from '../../';
+import { debug, isProduction, log } from '../../';
+import { config } from '../../../index'
 import { build } from 'bun';
 import { ignoreCssPlugin } from './ignoreCssPlugin';
 import { minifySync } from '@swc/core';
@@ -247,6 +248,8 @@ function createWatcher(config: HMRConfig) {
 }
 
 export const hmr = async (config: Partial<HMRConfig> = {}): Promise<Elysia> => {
+  // if (!isProduction) return new Elysia();
+
   const finalConfig: HMRConfig = { ...defaultConfig, ...config };
 
   const clientCode = clientSSECode(finalConfig);
