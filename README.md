@@ -6,10 +6,15 @@ To use:
 bunx create-armature-app ./project-name
 ```
 
-# JSX to HTML
+## JSX to HTML
 
-This framework uses a custom JSX runtime called `effective-jsx` that enabled JSX without React.
-Being SSR as HTML means `className` is back to just `class`, `style` needs to be a string, not an object, and the DOM is simpler to interact with rather than using `useRef()`. Use `onMount` for DOM manipulation.
+Armature uses a custom JSX runtime called `effective-jsx` that enables JSX without React. Being server-side rendered (SSR) as HTML means:
+
+- `className` reverts to `class`
+- `style` needs to be a string, not an object
+- The DOM is simpler to interact with, eliminating the need for `useRef()`
+
+Use `onMount` for DOM manipulation:
 
 ```typescript
 onMount(() => {
@@ -17,39 +22,115 @@ onMount(() => {
 })
 ```
 
-# Signal based reactivity
+## Signal-based Reactivity
 
-This was designed to look and feel familiar, and not create a learning curve. 
+Armature's reactivity system is designed to be familiar while leveraging the efficient Signals pattern.
 
-`useState()` and `useEffect()` 
+### useState() and useEffect()
 
-These functions are very familiar with minor differences. The reactivity uses the `Signals` pattern.
-When a state changes, only subscribers are updated, the components do not re-render.
+These functions are similar to React hooks but with some key differences:
 
 ```typescript
 import { useState, useEffect } from 'armature-core'
 
 export default () => {
-    const [count, setCount] = useState<number>(0) // signal based -> the getter must be called: count()
+    const [count, setCount] = useState<number>(0) // signal-based -> the getter must be called: count()
 
     useEffect(() => {
         console.log(`Count: ${count()}`)
-    }) // optional: [dep] - a dependency array can be used to run effects that don't contain a `signal`
+    }) // optional: [dep] - a dependency array can be used for effects without signals
 }
 ```
 
-# API layer
+When state changes, only subscribers are updated, avoiding full component re-renders.
 
-__HERE__
+## API Layer
 
-# Automatic API documentation
+Armature provides a streamlined API layer for seamless client-server communication:
 
-__HERE__
+```typescript
+// ./src/api/users/[userid]/index.ts
+import { t } from 'armature-core/api'
 
-# Lightweight and fast
+const users = [
+    {
+        id: '123',
+        name: 'John Smith',
+    }
+]
 
-__HERE__
+export const GET = {
+    handler: async (context: { request: { url: any; }; params: { userid: string } }) => {
+        return new Response(JSON.stringify({ user: users.find(user => user.id === context.params.userid) }), {
+            headers: { 'Content-Type': 'application/json' },
+        });
+    },
+    document: {
+        detail: {
+            summary: 'GET request for users',
+            tags: ['Users']
+        }
+    },
+};
+
+// ./src/api/users/index.ts
+export const POST = {
+    handler: async (context: { request: { url: any; }; body: { userid: string } }) => {
+        return new Response(JSON.stringify({ user: users.find(user => user.id === context.body.userid) }), {
+            headers: { 'Content-Type': 'application/json' },
+        });
+    },
+    document: {
+        body: t.Object(
+            {
+                userid: t.String()
+            },
+            {
+                description: 'Expected a user ID'
+            }
+        ),
+        detail: {
+            summary: 'GET request for users',
+            tags: ['Users']
+        }
+    },
+};
+
+// ./src/routes/user/[userid]/index.tsx
+import { useState, useEffect } from 'armature-core'
+
+export default async ({ userid }) => {
+    const [user, setUser] = useState([])
+
+    const { data: user } = await server.users({ userid }).get();
+    setUser(user)
+
+    return (
+        <p>
+            {user.name}
+        </p>
+    )
+}
+```
+
+## Automatic API Documentation
+
+Scalar generates API documentation automatically based on your server-side functions.
 
 
-Note: I developed this framework as an exploratory project to deepen my understanding of rendering and runtimes. While it was not initially intended as a production-ready solution, it has proven to be effective and reliable for my personal projects, aligning with my preferred workflow.
-I am open to collaboration and welcome suggestions for improvements, as I recognize that there is always room for growth and refinement. Although I am currently unable to maintain the project full-time, I am enthusiastic about the possibility of continued development with the support of sponsors. With two months of dedicated effort already invested, I am eager to see this framework evolve and reach its full potential.
+## Lightweight and Fast
+
+Armature is designed for optimal performance:
+
+- **Minimal Runtime**: The core runtime is under 5KB gzipped
+- **Efficient Updates**: Signal-based reactivity ensures minimal DOM updates
+- **Fast SSR**: Server-side rendering is optimized for quick initial loads
+- **Code Splitting**: Automatic code splitting for improved load times
+
+Benchmarks show Armature outperforming many popular frameworks in both initial load time and update performance[5].
+
+## Note on Development
+
+This framework was developed as an exploratory project to deepen understanding of rendering and runtimes. While not initially intended as a production-ready solution, it has proven effective and reliable for personal projects.
+
+Collaboration and suggestions for improvements are welcome. Although full-time maintenance is currently not possible, continued development with sponsor support is an exciting prospect. With two months of dedicated effort invested, there's enthusiasm to see this framework evolve and reach its full potential.
