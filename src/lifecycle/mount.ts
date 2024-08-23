@@ -1,28 +1,53 @@
-type EffectCallback = () => (void | (() => void));
-type DependencyList = ReadonlyArray<any>;
+type MountCallback = () => void | Promise<void> | (() => Promise<void>) | (() => void);
 
-const mountEffects: Array<[EffectCallback, DependencyList | undefined]> = [];
-
-export function onMount(effect: EffectCallback, deps?: DependencyList): void {
-  mountEffects.push([effect, deps]);
+interface MountEffect {
+  callback: MountCallback;
+  cleanup: (() => void) | undefined;
 }
 
-function runMountEffects() {
-  mountEffects.forEach(([effect, deps]) => {
-    const cleanup = effect();
-    if (typeof cleanup === 'function') {
-      // Store cleanup function for potential future use
-      // (e.g., if we implement an unmount lifecycle in the future)
+const mountQueue: MountEffect[] = [];
+const mountedEffects: MountEffect[] = [];
+let isDomReady = false;
+
+function executeMountQueue() {
+  while (mountQueue.length > 0) {
+    const effect = mountQueue.shift()!;
+    try {
+      const result = effect.callback();
+      if (result instanceof Promise) {
+        result.then(cleanupFn => {
+          if (typeof cleanupFn === 'function') {
+            effect.cleanup = cleanupFn;
+          }
+          mountedEffects.push(effect);
+        }).catch(error => console.error(`Error in onMount callback:`, error));
+      } else if (typeof result === 'function') {
+        effect.cleanup = result;
+        mountedEffects.push(effect);
+      } else {
+        mountedEffects.push(effect);
+      }
+    } catch (error) {
+      console.error(`Error in onMount callback for component:`, error);
     }
-  });
-  
-  mountEffects.length = 0;
-}
-
-if (typeof window !== 'undefined') {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', runMountEffects);
-  } else {
-    runMountEffects();
   }
 }
+
+// TODO: implement router tracking to handle cleanup on route change (unmount)
+
+export function onMount(callback: MountCallback) {
+  mountQueue.push({ callback, cleanup: undefined });
+
+  if (isDomReady) {
+    executeMountQueue();
+  }
+}
+
+export function domReady() {
+  isDomReady = true;
+  executeMountQueue();
+}
+
+queueMicrotask(()=>{
+  domReady()
+})

@@ -1,6 +1,6 @@
 {
   "name": "armature-core",
-  "version": "0.1.0",
+  "version": "0.2.3",
   "description": "A fullstack web framework using Bun",
   "main": "dist/src/index.js",
   "module": "dist/src/index.js",
@@ -13,7 +13,7 @@
     "LICENSE"
   ],
   "exports": {
-    ".": "./dist/index.js",
+    ".": "./dist/src/core/index.js",
     "./core": "./dist/src/index.js",
     "./client": "./dist/src/client/index.js",
     "./api": "./dist/src/api/index.js",

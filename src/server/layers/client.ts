@@ -175,7 +175,7 @@ export const handleClientRequest = async (c: any) => {
       if (output.kind === "entry-point") {
         jsContent = await output.text();
 
-        const regex = /export\s*\{\s*(\w+)\s+as\s+default\s*\}\s*;/;
+        const regex = /export\s*[\{\(\[]\s*([a-zA-Z0-9_$&]+)\s+as\s+default\s*[\}\)\]]\s*;?/;
         const match = jsContent.match(regex);
         const componentName = match?.[1];
 

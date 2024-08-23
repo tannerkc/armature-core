@@ -1,7 +1,10 @@
 import { generateUniqueId } from "../lib/generateId";
 
 let currentSubscriber: Function | null = null;
-export const usePersistentState = (key: string, initialValue: any) => {
+export const usePersistentState = <T>(key: string, initialValue?: T): [
+    (() => T | undefined),
+    (newValue: T) => void
+  ] => {
     const signature = generateUniqueId();
     const subscribers = new Set<Function>();
 
@@ -18,7 +21,7 @@ export const usePersistentState = (key: string, initialValue: any) => {
     get.isGetter = true;
     get.signature = signature;
 
-    const set = (newValue: any) => {
+    const set = (newValue: T): void => {
         if (value !== newValue) {
             value = newValue;
             localStorage.setItem(key, JSON.stringify(newValue));
@@ -26,17 +29,10 @@ export const usePersistentState = (key: string, initialValue: any) => {
 
             let signalElements = document.querySelectorAll(`[data-signal-id='${signature}']`)
             if (signalElements) signalElements.forEach(signalElement => {
-                signalElement.innerHTML = newValue
+                signalElement.innerHTML = (newValue as any).toString()
             })
         }
     }
-
-    setTimeout(() => {
-        let signalElements = document.querySelectorAll(`[data-signal-id='${signature}']`)
-        if (signalElements) signalElements.forEach(signalElement => {
-            signalElement.innerHTML = value
-        })
-    }, 0);
 
     return [get, set];
 }
