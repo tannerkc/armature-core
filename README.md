@@ -122,15 +122,10 @@ Scalar generates API documentation automatically based on your server-side funct
 
 Armature is designed for optimal performance:
 
-- **Minimal Runtime**: The core runtime is under 5KB gzipped
 - **Efficient Updates**: Signal-based reactivity ensures minimal DOM updates
 - **Fast SSR**: Server-side rendering is optimized for quick initial loads
-- **Code Splitting**: Automatic code splitting for improved load times
 
-Benchmarks show Armature outperforming many popular frameworks in both initial load time and update performance[5].
 
-## Note on Development
+Note: This framework was developed as an exploratory project to deepen understanding of rendering and runtimes. While not initially intended as a production-ready solution, it has proven effective and reliable for personal projects. I cannot advise using for production.
 
-This framework was developed as an exploratory project to deepen understanding of rendering and runtimes. While not initially intended as a production-ready solution, it has proven effective and reliable for personal projects.
-
-Collaboration and suggestions for improvements are welcome. Although full-time maintenance is currently not possible, continued development with sponsor support is an exciting prospect. With two months of dedicated effort invested, there's enthusiasm to see this framework evolve and reach its full potential.
+Collaboration and suggestions for improvements are welcome. Although full-time maintenance is currently not possible, continued development with sponsor support is an exciting prospect. With two months of dedicated effort invested, I am excited to see this framework evolve and reach its full potential.
