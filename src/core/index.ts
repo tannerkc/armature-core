@@ -5,6 +5,5 @@ import type { App } from "../server"
 export const server = treaty<App>('http://localhost:3000/api')
 export const serverFetch = edenFetch<App>('http://localhost:3000/api')
 
-export * from '../state/useState'
-export { usePersistentState } from '../state/usePersistentState'
+export * from '../state'
 export { onMount } from '../lifecycle/mount'

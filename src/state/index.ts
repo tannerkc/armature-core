@@ -69,7 +69,7 @@ export const usePersistentState = <T>(key: string, initialValue?: T): [
     return [get, set];
 }
 
-export const useEffect = (effect: () => void | (() => void), signals: (() => any)[]) => {
+export const useEffect = (effect: () => void | (() => void), signals?: (() => any)[]) => {
   const runEffect = () => {
     // Run the effect and handle cleanup
     if (typeof cleanup === 'function') {
@@ -80,17 +80,32 @@ export const useEffect = (effect: () => void | (() => void), signals: (() => any
 
   let cleanup: void | (() => void);
   
-  // Subscribe to all signals
-  signals.forEach(signal => {
-    const subscriber = () => runEffect();
-    console.log(subscriber)
+  if (signals) {
+      signals.forEach(signal => {
+        const subscriber = () => runEffect();
+    
+        currentSubscriber = subscriber;
+        signal();
+        currentSubscriber = null;
+      });
+  } else {
+    const cleanupFnRef = { current: null as null | (() => void) };
 
-    // Ensure the effect re-runs when any of the signals change
+    const subscriber = () => {
+        if (cleanupFnRef.current) {
+            cleanupFnRef.current();
+        }
+        cleanupFnRef.current = effect() || null;
+    };
+  
+    // Automatically detect dependencies by tracking the getters accessed during effect execution.
     currentSubscriber = subscriber;
-    signal(); // This subscribes the effect to the signal
-    currentSubscriber = null;
-  });
+    try {
+        cleanupFnRef.current = effect() || null;
+    } finally {
+        currentSubscriber = null;
+    }
+  }
 
-  // Initial run
   runEffect();
 };
