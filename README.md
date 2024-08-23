@@ -8,7 +8,7 @@ bunx create-armature-app ./project-name
 
 ## JSX to HTML
 
-Armature uses a custom JSX runtime called `effective-jsx` that enables JSX without React. Being server-side rendered (SSR) as HTML means:
+Armature uses my custom JSX runtime called [effective-jsx](https://github.com/tannerkc/effective-jsx) that enables JSX without React. Being server-side rendered (SSR) as HTML means:
 
 - `className` reverts to `class`
 - `style` needs to be a string, not an object
