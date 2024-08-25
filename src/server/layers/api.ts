@@ -1,7 +1,8 @@
 import { join } from "path";
 import fs, { readdir, stat } from 'node:fs/promises';
+import { existsSync } from "fs";
 
-async function traverseDirectory(dir: any, apiMap: any) {
+async function traverseDirectory(baseDir: string, dir: string, handlerMap: Map<string, string>) {
     const files = await readdir(dir);
   
     for (const file of files) {
@@ -9,26 +10,29 @@ async function traverseDirectory(dir: any, apiMap: any) {
         const fileStat = await stat(filePath);
   
         if (fileStat.isDirectory()) {
-            await traverseDirectory(filePath, apiMap);
+            await traverseDirectory(baseDir, filePath, handlerMap);
         } else if (file.endsWith('.ts')) {
             const routePath = filePath
               .replace(process.cwd(), '')
-              .replace('/src/api', '')
+              .replace(baseDir, '')
               .replace(/index\.ts$/, '')
               .replace(/\.ts$/, '')
               .replace(/\[([^\]]+)\]/g, ':$1');
-            const apiModule = await import(filePath);
+            const module = await import(filePath);
   
-            apiMap.set(routePath, apiModule);
+            handlerMap.set(routePath, module);
         }
     }
 }
 
-export async function loadApiModules() {
-    const apiDir = join(process.cwd(), 'src', 'api');
-    const apiMap = new Map();
-  
-    await traverseDirectory(apiDir, apiMap);
-  
-    return apiMap;
+export const loadModules = async (subDir: string) => {
+    const handlerMap = new Map();
+
+    if (!existsSync(join(process.cwd(), 'src', subDir))) {
+        // console.warn(`${subDir} directory does not exist. Skipping.`);
+        return handlerMap;
+    }
+    const dir = join(process.cwd(), 'src', subDir);
+    await traverseDirectory(`/${join('src', subDir)}`, dir, handlerMap);
+    return handlerMap;
 }

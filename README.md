@@ -14,6 +14,8 @@ Armature uses my custom JSX runtime called [effective-jsx](https://github.com/ta
 - `style` needs to be a string, not an object
 - The DOM is simpler to interact with, eliminating the need for `useRef()`
 
+## Lifecycle
+
 Use `onMount` for DOM manipulation:
 
 ```typescript
@@ -43,6 +45,12 @@ export default () => {
 ```
 
 When state changes, only subscribers are updated, avoiding full component re-renders.
+
+Note: Do not call the getter inside your JSX. They only need be called in your JavaScript, but the JSX Runtime calls the Signals for you.
+
+```JSX
+    return (<p>{count}</p>)
+```
 
 ## API Layer
 
@@ -117,6 +125,9 @@ export default async ({ userid }) => {
 
 Scalar generates API documentation automatically based on your server-side functions.
 
+## Websocket
+
+__TODO__
 
 ## Lightweight and Fast
 

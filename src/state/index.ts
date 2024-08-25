@@ -2,6 +2,20 @@ import { generateUniqueId } from "../lib/generateId";
 
 let currentSubscriber: Function | null = null;
 
+let currentlyRendering: Set<() => any> | null = null;
+
+function detectSignalUsage<T>(fn: () => T): { result: T; usedSignals: Set<() => any> } {
+  const previousRendering = currentlyRendering;
+  currentlyRendering = new Set();
+
+  const result = fn();
+
+  const usedSignals = currentlyRendering;
+  currentlyRendering = previousRendering;
+
+  return { result, usedSignals };
+}
+
 export const useState: {
   <T>(): [() => T | undefined, (newValue: T) => void];
   <T>(initialValue: T): [() => T, (newValue: T) => void];
@@ -9,6 +23,7 @@ export const useState: {
   let value = initialValue;
   const signature = generateUniqueId();
   const subscribers = new Set<Function>();
+  let arrayMapping: Function;
 
   const get = () => {
     if (currentSubscriber) {
@@ -19,6 +34,29 @@ export const useState: {
 
   get.isGetter = true;
   get.signature = signature;
+  get.map = (fn: Function) => {
+    if (!Array.isArray(value)) {
+      throw new TypeError('.map can only be calld on an array');
+    }
+
+    if (typeof fn !== 'function') {
+      throw new TypeError(fn + ' is not a function');
+    }
+
+    arrayMapping = fn;
+
+    const len = value.length >>> 0;
+    const result = new Array(len);
+    const isArr = Array.isArray(value);
+  
+    for (let i = 0; i < len; i++) {
+      if (isArr || i in value) {
+        result[i] = fn.call(value, value[i], i, value);
+      }
+    }
+
+    return result;
+  }
 
   const set = (newValue: T) => {
     if (value !== newValue) {
@@ -27,7 +65,11 @@ export const useState: {
 
       const signalElements = document.querySelectorAll(`[data-signal-id='${signature}']`);
       signalElements.forEach(signalElement => {
+        if (Array.isArray(value)) {
+          signalElement.innerHTML = value.map((val) => arrayMapping(val))
+        } else {
           signalElement.innerHTML = String(newValue);
+        }
       });
     }
   };
@@ -115,3 +157,10 @@ export const useEffect = (effect: () => void | (() => void), signals?: (() => an
 
   runEffect();
 };
+
+
+const stringToHTML = (htmlString: string) => {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(htmlString, 'text/html');
+  return doc.body.firstChild;
+}

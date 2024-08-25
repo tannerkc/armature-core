@@ -3,19 +3,22 @@ import { swagger } from '@elysiajs/swagger'
 import { jwt } from '@elysiajs/jwt'
 import { join } from 'path';
 import { createStaticMiddleware, handleCssRequest } from './middleware/staticMiddleware';
-import { debug, isProduction, log } from '..';
+import { log } from '..';
 import { handleClientRequest } from './layers/client';
 import { config } from '../../index';
-import { loadApiModules } from './layers/api';
+import { loadModules } from './layers/api';
 import { handleHydrationRequest } from './layers/hydration';
 import { hmr } from './plugins/hmrPlugin';
+import { loadMiddleware } from './layers/middleware';
 
 const publicFolder = join(process.cwd(), 'public')
 
 const jwtConfig = config.jwt || {}
 const swaggerConfig = config.api
 
-const apiMap = await loadApiModules()
+const apiMap = await loadModules('/api')
+const wsMap = await loadModules('/ws')
+
 const staticProvider = createStaticMiddleware(publicFolder)
 
 const app = new Elysia()
@@ -31,7 +34,7 @@ const app = new Elysia()
           bearer: auth?.startsWith('Bearer ') ? auth.slice(7) : null
       };
   })
-  .group('/api', (app) => {
+  .group('api', (app) => {
     // TODO: consider refactor lazy loaded modules
     // TODO: fix Elysia Eden type safety
     for (const [routePath, handlers] of apiMap.entries()) {
@@ -62,20 +65,30 @@ const app = new Elysia()
     }
     return app
   })
-  
-  app.get('/.armature/*', handleHydrationRequest)
-  app.get('*', async (c) => {
-    if (c.request.url.endsWith('/global.css')) {
-      return await handleCssRequest(c, publicFolder);
+  .group('ws', (app) => {
+    // TODO: consider refactor lazy loaded modules
+    // TODO: fix Elysia Eden type safety
+    for (const [routePath, handler] of wsMap.entries()) {
+      app.ws(routePath, handler.default)
     }
+    return app
+  })
 
-    return await handleClientRequest(c)
-  }, {
-    beforeHandle: staticProvider
-  })
-  .onError(({ code }) => {
-    if (code === 'NOT_FOUND') return 'Route not found :('
-  })
+await loadMiddleware(app, join(process.cwd(), 'src', 'middleware'));
+
+app.get('/.armature/*', handleHydrationRequest)
+app.get('*', async (c) => {
+  if (c.request.url.endsWith('/global.css')) {
+    return await handleCssRequest(c, publicFolder);
+  }
+
+  return await handleClientRequest(c)
+}, {
+  beforeHandle: staticProvider
+})
+.onError(({ code }) => {
+  if (code === 'NOT_FOUND') return 'Route not found :('
+})
 
 export async function createServer() {
   const port = config?.server?.url ? new URL(config.server.url).port : 3000;
