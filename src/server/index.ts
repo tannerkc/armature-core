@@ -3,7 +3,7 @@ import { swagger } from '@elysiajs/swagger'
 import { jwt } from '@elysiajs/jwt'
 import { join } from 'path';
 import { createStaticMiddleware, handleCssRequest } from './middleware/staticMiddleware';
-import { log } from '..';
+import { isProduction, log } from '..';
 import { handleClientRequest } from './layers/client';
 import { config } from '../../index';
 import { loadModules } from './layers/api';
@@ -24,10 +24,6 @@ const staticProvider = createStaticMiddleware(publicFolder)
 const app = new Elysia()
   .use(swagger(swaggerConfig))
   .use(jwt(jwtConfig))
-  .use(hmr({
-      srcDir: './src',
-      outDir: './.armature',
-  }))
   .derive(({ headers }) => {
       const auth = headers['authorization'];
       return {
@@ -76,6 +72,13 @@ const app = new Elysia()
 
 await loadMiddleware(app, join(process.cwd(), 'src', 'middleware'));
 
+if (!isProduction) {
+  app.use(hmr({
+    srcDir: './src',
+    outDir: './.armature',
+  }))
+}
+
 app.get('/.armature/*', handleHydrationRequest)
 app.get('*', async (c) => {
   if (c.request.url.endsWith('/global.css')) {
@@ -103,3 +106,8 @@ export async function createServer() {
 }
 
 export type App = typeof app;
+
+// export const getSubscriberCount = (socketName: string) => {
+//   const count = (app as any).subscriberCount(socketName);
+//   return count;
+// }

@@ -2,20 +2,6 @@ import { generateUniqueId } from "../lib/generateId";
 
 let currentSubscriber: Function | null = null;
 
-let currentlyRendering: Set<() => any> | null = null;
-
-function detectSignalUsage<T>(fn: () => T): { result: T; usedSignals: Set<() => any> } {
-  const previousRendering = currentlyRendering;
-  currentlyRendering = new Set();
-
-  const result = fn();
-
-  const usedSignals = currentlyRendering;
-  currentlyRendering = previousRendering;
-
-  return { result, usedSignals };
-}
-
 export const useState: {
   <T>(): [() => T | undefined, (newValue: T) => void];
   <T>(initialValue: T): [() => T, (newValue: T) => void];
@@ -24,6 +10,7 @@ export const useState: {
   const signature = generateUniqueId();
   const subscribers = new Set<Function>();
   let arrayMapping: Function;
+  let conditionMapping: Record<any, HTMLElement>;
 
   const get = () => {
     if (currentSubscriber) {
@@ -35,8 +22,12 @@ export const useState: {
   get.isGetter = true;
   get.signature = signature;
   get.map = (fn: Function) => {
+    if (!value) {
+      throw new TypeError('.map cannot be called on undefined');
+    }
+
     if (!Array.isArray(value)) {
-      throw new TypeError('.map can only be calld on an array');
+      throw new TypeError('.map can only be called on an array');
     }
 
     if (typeof fn !== 'function') {
@@ -45,17 +36,37 @@ export const useState: {
 
     arrayMapping = fn;
 
-    const len = value.length >>> 0;
-    const result = new Array(len);
-    const isArr = Array.isArray(value);
-  
-    for (let i = 0; i < len; i++) {
-      if (isArr || i in value) {
-        result[i] = fn.call(value, value[i], i, value);
+    const mappedGetter = () => {
+      let v = value as any[]
+      const len = v.length >>> 0;
+      const result = new Array(len);
+      const isArr = Array.isArray(value);
+    
+      for (let i = 0; i < len; i++) {
+        if (isArr || i in v) {
+          result[i] = fn.call(value, v[i], i, value);
+        }
+      }
+
+      return result;
+    };
+    mappedGetter.isSignalMap = true;
+    mappedGetter.signature = signature;
+
+    return mappedGetter
+  }
+  get.condition = (conditions: Record<any, HTMLElement>) => {
+    conditionMapping = conditions;
+    const conditionalGetter = () => {
+      let currentCondition = conditions[value]
+      if (currentCondition) {
+        return [currentCondition]
       }
     }
+    conditionalGetter.isSignalConditional = true;
+    conditionalGetter.signature = signature;
 
-    return result;
+    return conditionalGetter
   }
 
   const set = (newValue: T) => {
@@ -63,16 +74,32 @@ export const useState: {
       value = newValue;
       subscribers.forEach(subscriber => subscriber());
 
-      const signalElements = document.querySelectorAll(`[data-signal-id='${signature}']`);
+      const signalElements = document.querySelectorAll(`[data-sid='${signature}']`);
       signalElements.forEach(signalElement => {
-        if (Array.isArray(value)) {
-          signalElement.innerHTML = value.map((val) => arrayMapping(val))
-        } else {
           signalElement.innerHTML = String(newValue);
-        }
       });
+
+      // Update mapped signal array elements
+      const signalMapElements = document.querySelectorAll(`[data-smid='${signature}']`);
+      signalMapElements.forEach(signalMapElement => {
+          if (Array.isArray(value)) {
+              signalMapElement.innerHTML = value.map((item) => arrayMapping(item).string).join('');
+          }
+      });
+
+      const signalConditionElements = document.querySelectorAll(`[data-scid='${signature}']`);
+      signalConditionElements.forEach(signalConditionElement => {
+        let currentCondition = conditionMapping[value]
+        console.log(currentCondition)
+        console.log(conditionMapping)
+        if (currentCondition) {
+          signalConditionElement.innerHTML = (currentCondition as any).string;
+        } else {
+          signalConditionElement.innerHTML = ""
+        }
+    });
     }
-  };
+};
 
   return [get, set];
 };
@@ -107,7 +134,7 @@ export const usePersistentState: {
             localStorage.setItem(key, JSON.stringify(newValue));
             subscribers.forEach(subscriber => subscriber());
 
-            let signalElements = document.querySelectorAll(`[data-signal-id='${signature}']`)
+            let signalElements = document.querySelectorAll(`[data-sid='${signature}']`)
             if (signalElements) signalElements.forEach(signalElement => {
                 signalElement.innerHTML = (newValue as any).toString()
             })
@@ -119,7 +146,6 @@ export const usePersistentState: {
 
 export const useEffect = (effect: () => void | (() => void), signals?: (() => any)[]) => {
   const runEffect = () => {
-    // Run the effect and handle cleanup
     if (typeof cleanup === 'function') {
         cleanup();
     }

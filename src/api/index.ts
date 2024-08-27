@@ -7,3 +7,5 @@ export const configureJWT = (config: { name: string, secret: string }) => {
 }
 
 export const getJWTconfig = (): JWTOption<"jwt", undefined>  => jwtConfig as JWTOption<"jwt", undefined> 
+
+// export { getSubscriberCount } from '../server'

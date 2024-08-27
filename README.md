@@ -14,6 +14,10 @@ Armature uses my custom JSX runtime called [effective-jsx](https://github.com/ta
 - `style` needs to be a string, not an object
 - The DOM is simpler to interact with, eliminating the need for `useRef()`
 
+## Custom Element
+
+__TODO__
+
 ## Lifecycle
 
 Use `onMount` for DOM manipulation:
@@ -135,6 +139,15 @@ Armature is designed for optimal performance:
 
 - **Efficient Updates**: Signal-based reactivity ensures minimal DOM updates
 - **Fast SSR**: Server-side rendering is optimized for quick initial loads
+
+## Missing Features
+
+Features that are planned and not yet implemented:
+
+- Conditional rendering.
+- Fine-grained HMR.
+- Better type safety for server API.
+- Better async component that doesn't block the page from loading.
 
 
 Note: This framework was developed as an exploratory project to deepen understanding of rendering and runtimes. While not initially intended as a production-ready solution, it has proven effective and reliable for personal projects. I cannot advise using for production.
