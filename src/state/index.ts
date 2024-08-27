@@ -3,27 +3,9 @@ import { generateUniqueId } from "../lib/generateId";
 let currentSubscriber: Function | null = null;
 
 export const useState: {
-  <T>(): [
-    (() => T | undefined) & {
-      map: <U>(fn: (value: T, index: number, array: T[]) => U) => () => U[];
-      condition: (conditions: Record<any, HTMLElement>) => () => HTMLElement[] | undefined;
-    },
-    (newValue: T) => void
-  ];
-  <T>(initialValue: T): [
-    (() => T) & {
-      map: <U>(fn: (value: T extends any[] ? T[number] : never, index: number, array: T extends any[] ? T : never) => U) => () => U[];
-      condition: (conditions: Record<any, HTMLElement>) => () => HTMLElement[] | undefined;
-    },
-    (newValue: T) => void
-  ];
-} = <T>(initialValue?: T): [
-  (() => T | undefined) & {
-    map: <U>(fn: (value: T extends any[] ? T[number] : never, index: number, array: T extends any[] ? T : never) => U) => () => U[];
-    condition: (conditions: Record<any, HTMLElement>) => () => HTMLElement[] | undefined;
-  },
-  (newValue: T) => void
-] => {
+  <T>(): [(() => T | undefined) & { map: Function, condition: Function }, (newValue: T) => void];
+  <T>(initialValue: T): [(() => T) & { map: Function, condition: Function }, (newValue: T) => void];
+} = <T>(initialValue?: T): [(() => T | undefined) & { map: Function, condition: Function }, (newValue: T) => void] => {
   let value = initialValue;
   const signature = generateUniqueId();
   const subscribers = new Set<Function>();
