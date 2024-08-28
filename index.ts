@@ -9,6 +9,6 @@ const loadConfig = async () => {
       return configImport?.default;
     }
     return {};
-  };
+};
   
 export const config = await loadConfig();
