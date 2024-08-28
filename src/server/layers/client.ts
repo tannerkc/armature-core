@@ -117,6 +117,13 @@ const streamResponse = (htmlStart: string, cssContent: string, jsContent: string
   return new Response(stream, { headers });
 };
 
+const renderInitialHTML = async (Component: any, params: any) => {
+  if (Component.renderInitial) {
+    return await Component.renderInitial(params);
+  }
+  return '<div>Loading...</div>';
+};
+
 export const handleClientRequest = async (c: any) => {
   try {
     const url = new URL(c.request.url);

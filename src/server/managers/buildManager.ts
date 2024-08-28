@@ -64,7 +64,7 @@ class BuildManager {
       cacheManager.setBuildInfo(filePath, result);
       return result;
     } catch (error) {
-      log.error(`Build error for ${filePath}:`, error);
+      log.error(`Build error for ${filePath}:`+ error);
       return {
         success: false,
         jsContent: '',

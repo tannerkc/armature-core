@@ -10,7 +10,7 @@ export const useState: {
   const signature = generateUniqueId();
   const subscribers = new Set<Function>();
   let arrayMapping: Function;
-  let conditionMapping: Record<any, HTMLElement>;
+  let conditionMapping: Array<{ condition: (value: T) => boolean, element: HTMLElement }> | Record<any, HTMLElement>;
 
   let value = key ? JSON.parse(localStorage.getItem(key) || 'null') ?? initialValue : initialValue;
 
@@ -57,13 +57,22 @@ export const useState: {
 
     return mappedGetter;
   };
-  get.condition = (conditions: Record<any, HTMLElement>) => {
+  get.condition = (conditions: Array<{ condition: (value: T) => boolean, element: HTMLElement }> | Record<any, HTMLElement>) => {
     conditionMapping = conditions;
     const conditionalGetter = () => {
-      let currentCondition = conditions[value];
-      if (currentCondition) {
-        return [currentCondition];
+      if (Array.isArray(conditions)) {
+        for (let { condition, element } of conditions) {
+          if (condition(value)) {
+            return [element];
+          }
+        }
+      } else {
+        const currentCondition = conditions[value];
+        if (currentCondition) {
+          return [currentCondition];
+        }
       }
+      return null;
     };
     conditionalGetter.isSignalConditional = true;
     conditionalGetter.signature = signature;
@@ -95,12 +104,21 @@ export const useState: {
 
       const signalConditionElements = document.querySelectorAll(`[data-scid='${signature}']`);
       signalConditionElements.forEach(signalConditionElement => {
-        let currentCondition = conditionMapping[value];
-        if (currentCondition) {
-          signalConditionElement.innerHTML = (currentCondition as any).string;
+        if (Array.isArray(conditionMapping)) {
+          for (let { condition, element } of conditionMapping) {
+            if (condition(value)) {
+              signalConditionElement.innerHTML = (element as any).string;
+              return;
+            }
+          }
         } else {
-          signalConditionElement.innerHTML = "";
+          const currentCondition = conditionMapping[value];
+          if (currentCondition) {
+            signalConditionElement.innerHTML = (currentCondition as any).string;
+            return;
+          }
         }
+        signalConditionElement.innerHTML = "";
       });
     }
   };

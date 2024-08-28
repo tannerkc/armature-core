@@ -1,3 +1,4 @@
+export * from 'bun:sqlite'
 import type { JWTOption } from '@elysiajs/jwt'
 export { t } from 'elysia'
 

@@ -1,4 +1,3 @@
-export * from 'bun:sqlite'
 import { edenFetch, edenTreaty, treaty } from "@elysiajs/eden"
 import type { App } from "../server"
 // import { config } from "../../index";
