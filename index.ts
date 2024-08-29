@@ -12,3 +12,7 @@ const loadConfig = async () => {
 };
   
 export const config = await loadConfig();
+
+export const getConfig = () => {
+  return `window.__CONFIG__ = ${JSON.stringify(config)};`;
+}
