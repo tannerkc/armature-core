@@ -22,8 +22,7 @@ class BuildManager {
 
   private initializePlugins() {
     // Initialize plugins here
-    // For example:
-    // this.plugins.push(new SomePlugin());
+    // this.plugins.push(new sveltePlugin());
   }
 
   async buildRoute(filePath: string): Promise<BuildResult> {

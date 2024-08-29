@@ -8,7 +8,7 @@ import { type RouteInfo } from '../../types';
 
 const routeCache = new Map<string, { filePath: string | null; params: Record<string, string>; layout: string | null } | null>();
 
-const findMatchingRoute = async (urlPath: string): Promise<{ filePath: string | null, params: Record<string, string>, layout: string | null }> => {
+export const findMatchingRoute = async (urlPath: string): Promise<{ filePath: string | null, params: Record<string, string>, layout: string | null }> => {
     debug(`Finding matching Route for path: ${urlPath}`)
     
     if (routeCache.has(urlPath)) {
@@ -19,11 +19,15 @@ const findMatchingRoute = async (urlPath: string): Promise<{ filePath: string | 
     let currentPath = CONFIG.ROUTES_DIR;
     let params: Record<string, string> = {};
     let layout: string | null = null;
+
+    const rootLayout = existsSync(join(process.cwd(), 'src', 'routes', 'layout.tsx')) 
+    ? join(process.cwd(), 'src', 'routes', 'layout.tsx') 
+    : null;
   
     if (parts.length === 0) {
       const indexPath = join(currentPath, 'index.tsx');
       if (existsSync(indexPath)) {
-        const result = { filePath: indexPath, params, layout: null };
+        const result = { filePath: indexPath, params, layout: rootLayout };
         routeCache.set(urlPath, result);
         return result;
       }
@@ -40,13 +44,13 @@ const findMatchingRoute = async (urlPath: string): Promise<{ filePath: string | 
       if (isLast) {
         if (existsSync(`${possiblePath}.tsx`)) {
           const hasLocalLayout = await existsSync(join(dirname(possiblePath), 'layout.tsx'));
-          const result = { filePath: `${possiblePath}.tsx`, params, layout: hasLocalLayout ? join(dirname(possiblePath), 'layout.tsx') : null };
+          const result = { filePath: `${possiblePath}.tsx`, params, layout: hasLocalLayout ? join(dirname(possiblePath), 'layout.tsx') : rootLayout };
           routeCache.set(urlPath, result);
           return result;
         }
         if (existsSync(join(possiblePath, 'index.tsx'))) {
           const hasLocalLayout = await existsSync(join(possiblePath, 'layout.tsx'));
-          const result = { filePath: join(possiblePath, 'index.tsx'), params, layout: hasLocalLayout ? join(possiblePath, 'layout.tsx') : null };
+          const result = { filePath: join(possiblePath, 'index.tsx'), params, layout: hasLocalLayout ? join(possiblePath, 'layout.tsx') : rootLayout };
           routeCache.set(urlPath, result);
           return result;
         }
@@ -63,13 +67,13 @@ const findMatchingRoute = async (urlPath: string): Promise<{ filePath: string | 
         if (isLast) {
           if (existsSync(`${possiblePath}.tsx`)) {
             const hasLocalLayout = await existsSync(join(dirname(possiblePath), 'layout.tsx'));
-            const result = { filePath: `${possiblePath}.tsx`, params, layout: hasLocalLayout ? join(dirname(possiblePath), 'layout.tsx') : null };
+            const result = { filePath: `${possiblePath}.tsx`, params, layout: hasLocalLayout ? join(dirname(possiblePath), 'layout.tsx') : rootLayout };
             routeCache.set(urlPath, result);
             return result;
           }
           if (existsSync(join(possiblePath, 'index.tsx'))) {
             const hasLocalLayout = await existsSync(join(possiblePath, 'layout.tsx'));
-            const result = { filePath: join(possiblePath, 'index.tsx'), params, layout: hasLocalLayout ? join(possiblePath, 'layout.tsx') : null };
+            const result = { filePath: join(possiblePath, 'index.tsx'), params, layout: hasLocalLayout ? join(possiblePath, 'layout.tsx') : rootLayout };
             routeCache.set(urlPath, result);
             return result;
           }
