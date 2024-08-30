@@ -1,7 +1,7 @@
 import { Elysia } from 'elysia';
 import { swagger } from '@elysiajs/swagger'
 import { jwt } from '@elysiajs/jwt'
-import { join, normalize } from 'path';
+import { join } from 'path';
 import { createStaticMiddleware, handleCssRequest } from './middleware/staticMiddleware';
 import { isProduction, log } from '..';
 import { handleClientRequest } from './layers/client';
@@ -11,7 +11,6 @@ import { handleHydrationRequest } from './layers/hydration';
 import { hmr } from './plugins/hmrPlugin';
 import { loadMiddleware } from './layers/middleware';
 import { initializeRouteTree } from '../client/hrefBuilder';
-import { CONFIG } from '../config';
 import { minifySync } from '@swc/core';
 
 const publicFolder = join(process.cwd(), 'public')
@@ -98,10 +97,13 @@ app.get('*', async (c) => {
 })
 
 export async function createServer() {
-  const routeTreeScript = await initializeRouteTree()
+  const routeTreeScript = await initializeRouteTree();
+  const routeMapping = config.href || {};
+  
   const configScript = getConfig()
-  const windowScript = routeTreeScript + configScript
-  await Bun.write(join(process.cwd(), '.armature', 'window.js'), windowScript);
+  const windowScript = routeTreeScript + configScript + `window.__ROUTE_MAPPING__ = ${JSON.stringify(routeMapping)};`;
+
+  await Bun.write(join(process.cwd(), '.armature', 'window.js'), minifySync(windowScript).code);
 
   const port = config?.server?.url ? new URL(config.server.url).port : 3000;
 

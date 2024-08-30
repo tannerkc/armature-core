@@ -9,11 +9,16 @@ type RouteNode = RouteNodeFunction & {
   [key: string]: RouteNode;
 };
 
-const buildClientRouteTree = (serverRouteTree: any): RouteNode => {
-  function buildNode(node: any, path: string[] = []): RouteNode {
+export type RouteMapping = {
+  [key: string]: string;
+};
+
+const buildClientRouteTree = (serverRouteTree: any, routeMapping: RouteMapping = {}): RouteNode => {
+  const buildNode = (node: any, path: string[] = []): RouteNode => {
     const nodeFunction = ((param?: RouteParams): any => {
       if (param === undefined) {
-        return '/' + path.join('/');
+        const mappedPath = path.map(segment => routeMapping[segment] || segment);
+        return '/' + mappedPath.join('/');
       }
       const nextPath = [...path];
       const dynamicSegment = Object.keys(node).find(key => key.startsWith('[') && key.endsWith(']'));
@@ -36,9 +41,18 @@ const buildClientRouteTree = (serverRouteTree: any): RouteNode => {
   return buildNode(serverRouteTree);
 }
 
+let routeTree: RouteNode;
+let routeMapping: RouteMapping = {};
+
+export const initializeHref = (serverRouteTree: any, mapping: RouteMapping = {}) => {
+  routeTree = buildClientRouteTree(serverRouteTree, mapping);
+  routeMapping = mapping;
+}
+
 export const useHref = (): RouteNode => {
-    if (typeof window === 'undefined' || !window.__ROUTE_TREE__) {
-      throw new Error('Route tree not initialized. Make sure __ROUTE_TREE__ is injected into the page.');
-    }
-    return buildClientRouteTree(window.__ROUTE_TREE__);
+  initializeHref(window.__ROUTE_TREE__, window.__ROUTE_MAPPING__);
+  if (!routeTree) {
+    throw new Error('Route tree not initialized. Make sure to call initializeHref first.');
+  }
+  return routeTree;
 }

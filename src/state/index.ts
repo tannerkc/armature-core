@@ -1,5 +1,8 @@
 import { generateUniqueId } from "../utils/generateId";
 
+type Reducer<S, A> = (state: S, action: A) => S;
+type Listener<T> = (state: T) => void;
+
 let currentSubscriber: Function | null = null;
 
 export const useState: {
@@ -126,6 +129,20 @@ export const useState: {
   return [get, set];
 };
 
+export function useReducer<S, A>(
+  reducer: Reducer<S, A>,
+  initialState: S,
+  initializer?: (arg: S) => S
+): [() => S, (action: A) => void] {
+  const [state, setState] = useState<S>(initializer ? initializer(initialState) : initialState);
+
+  const dispatch = (action: A) => {
+    setState(reducer(state(), action));
+  };
+
+  return [state, dispatch];
+}
+
 export const useEffect = (effect: () => void | (() => void), signals?: (() => any)[]) => {
   const runEffect = () => {
     if (typeof cleanup === 'function') {
@@ -165,3 +182,26 @@ export const useEffect = (effect: () => void | (() => void), signals?: (() => an
 
   runEffect();
 };
+
+export function createStore<T extends object>(initialState: T) {
+  let state = initialState;
+  const listeners = new Set<Listener<T>>();
+
+  function getState(): T {
+    return state;
+  }
+
+  function setState(newState: Partial<T>) {
+    state = { ...state, ...newState };
+    listeners.forEach(listener => listener(state));
+  }
+
+  function subscribe(listener: Listener<T>) {
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  }
+
+  return { getState, setState, subscribe };
+}

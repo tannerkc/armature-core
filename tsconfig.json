@@ -31,8 +31,10 @@
     "rootDir": "./",
     "baseUrl": ".",
 
-    "jsx": "react-jsx",
-    "jsxImportSource": "effective-jsx",
+    // "jsx": "react-jsx",
+    // "jsxImportSource": "effective-jsx",
+    "jsx": "preserve",
+    "jsxImportSource": "armature-core",
   },
   "include": ["./**/*"],
   "exclude": ["./node_modules", "example", "dist", "plugins"]

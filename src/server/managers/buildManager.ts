@@ -93,15 +93,15 @@ class BuildManager {
           const compilePath = normalize(join(CONFIG.BUILD_DIR, pathname));
 
           const buildResult = await Bun.build({
-          entrypoints: [filePath],
-          minify: true,
-          outdir: compilePath,
-          splitting: true,
-          plugins: this.plugins,
+            entrypoints: [filePath],
+            minify: true,
+            outdir: compilePath,
+            splitting: true,
+            plugins: this.plugins,
           });
 
           if (!buildResult.success) {
-          throw new Error(`Build failed for ${filePath}`);
+            throw new Error(`Build failed for ${filePath}`);
           }
 
           // cacheManager.setBuildInfo(filePath, buildResult);

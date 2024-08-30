@@ -60,7 +60,6 @@ export const handleClientRequest = async (c: any) => {
       return new Response('Not Found', { status: 404 });
     }
 
-// const htmlWithRouteTree = htmlContent.replace('</head>', `<script>${routeTreeScript}</script></head>`);
     const {
       cssContent,
       routeJsPath
