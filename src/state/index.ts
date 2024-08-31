@@ -129,11 +129,11 @@ export const useState: {
   return [get, set];
 };
 
-export function useReducer<S, A>(
+export const useReducer = <S, A>(
   reducer: Reducer<S, A>,
   initialState: S,
   initializer?: (arg: S) => S
-): [() => S, (action: A) => void] {
+): [() => S, (action: A) => void] => {
   const [state, setState] = useState<S>(initializer ? initializer(initialState) : initialState);
 
   const dispatch = (action: A) => {
@@ -183,8 +183,18 @@ export const useEffect = (effect: () => void | (() => void), signals?: (() => an
   runEffect();
 };
 
-export function createStore<T extends object>(initialState: T) {
-  let state = initialState;
+export const createStore = <T extends object>(initialState: T, storageKey: string) => {
+  let savedState: T | null = null;
+  try {
+    const savedStateString = localStorage.getItem(storageKey);
+    if (savedStateString) {
+      savedState = JSON.parse(savedStateString);
+    }
+  } catch (error) {
+    console.error('Failed to load state from localStorage:', error);
+  }
+
+  let state = savedState || initialState;
   const listeners = new Set<Listener<T>>();
 
   function getState(): T {
@@ -193,6 +203,12 @@ export function createStore<T extends object>(initialState: T) {
 
   function setState(newState: Partial<T>) {
     state = { ...state, ...newState };
+    
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(state));
+    } catch (error) {
+      console.error('Failed to save state to localStorage:', error);
+    }
     listeners.forEach(listener => listener(state));
   }
 
@@ -204,4 +220,25 @@ export function createStore<T extends object>(initialState: T) {
   }
 
   return { getState, setState, subscribe };
+}
+
+export const useStore = <T extends object, K extends keyof T>(
+  store: ReturnType<typeof createStore<T>>,
+  selector: K
+): [T[K], (value: T[K]) => void] => {
+  const [value, setValue] = useState<T[K]>(store.getState()[selector]);
+
+  useEffect(() => {
+    const unsubscribe = store.subscribe((state) => {
+      setValue(state[selector]);
+    });
+
+    return unsubscribe;
+  }, [store, selector]);
+
+  const setStoreValue = (newValue: T[K]) => {
+    store.setState({ [selector]: newValue } as Partial<T>);
+  };
+
+  return [value, setStoreValue];
 }
