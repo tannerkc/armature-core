@@ -183,36 +183,43 @@ export const useEffect = (effect: () => void | (() => void), signals?: (() => an
   runEffect();
 };
 
-export const createStore = <T extends object>(initialState: T, storageKey: string) => {
-  let savedState: T | null = null;
-  try {
-    const savedStateString = localStorage.getItem(storageKey);
-    if (savedStateString) {
-      savedState = JSON.parse(savedStateString);
+export const createStore = <T extends object>(initialState: T, storageKey?: string) => {
+  let state = initialState;
+  const listeners = new Set<() => void>();
+
+  if (storageKey) {
+    try {
+      const savedState = localStorage.getItem(storageKey);
+      if (savedState) {
+        state = { ...initialState, ...JSON.parse(savedState) };
+      }
+    } catch (error) {
+      console.error('Failed to load state from localStorage:', error);
     }
-  } catch (error) {
-    console.error('Failed to load state from localStorage:', error);
   }
 
-  let state = savedState || initialState;
-  const listeners = new Set<Listener<T>>();
-
-  function getState(): T {
+  const getState = (): T => {
     return state;
   }
 
-  function setState(newState: Partial<T>) {
-    state = { ...state, ...newState };
+  const setState = (newState: Partial<T> | ((prevState: T) => Partial<T>)) => {
+    const nextState = typeof newState === 'function'
+      ? newState(state)
+      : newState;
     
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(state));
-    } catch (error) {
-      console.error('Failed to save state to localStorage:', error);
+    state = { ...state, ...nextState };
+    
+    if (storageKey) {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(state));
+      } catch (error) {
+        console.error('Failed to save state to localStorage:', error);
+      }
     }
-    listeners.forEach(listener => listener(state));
+    listeners.forEach(listener => listener());
   }
 
-  function subscribe(listener: Listener<T>) {
+  const subscribe = (listener: () => void) => {
     listeners.add(listener);
     return () => {
       listeners.delete(listener);
@@ -225,20 +232,22 @@ export const createStore = <T extends object>(initialState: T, storageKey: strin
 export const useStore = <T extends object, K extends keyof T>(
   store: ReturnType<typeof createStore<T>>,
   selector: K
-): [T[K], (value: T[K]) => void] => {
-  const [value, setValue] = useState<T[K]>(store.getState()[selector]);
+): [() => T[K], (newValue: T[K]) => void] => {
+  const [, forceUpdate] = useState({});
 
-  useEffect(() => {
-    const unsubscribe = store.subscribe((state) => {
-      setValue(state[selector]);
-    });
-
-    return unsubscribe;
-  }, [store, selector]);
-
-  const setStoreValue = (newValue: T[K]) => {
-    store.setState({ [selector]: newValue } as Partial<T>);
+  const getValue = () => {
+    if (currentSubscriber) {
+      store.subscribe(() => forceUpdate({}));
+    }
+    return store.getState()[selector];
   };
 
-  return [value, setStoreValue];
+  const setValue = (newValue: T[K]) => {
+    store.setState((prevState: T) => ({
+      ...prevState,
+      [selector]: newValue
+    }));
+  };
+
+  return [getValue, setValue];
 }
