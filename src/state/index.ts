@@ -1,7 +1,9 @@
 import { generateUniqueId } from "../utils/generateId";
 
 type Reducer<S, A> = (state: S, action: A) => S;
-type Listener<T> = (state: T) => void;
+type Store<T> = {
+  [K in keyof T]: [() => T[K], (newValue: T[K]) => void];
+};
 
 let currentSubscriber: Function | null = null;
 
@@ -183,71 +185,24 @@ export const useEffect = (effect: () => void | (() => void), signals?: (() => an
   runEffect();
 };
 
-export const createStore = <T extends object>(initialState: T, storageKey?: string) => {
-  let state = initialState;
-  const listeners = new Set<() => void>();
+const stores: Record<string, Store<any>> = {};
 
-  if (storageKey) {
-    try {
-      const savedState = localStorage.getItem(storageKey);
-      if (savedState) {
-        state = { ...initialState, ...JSON.parse(savedState) };
-      }
-    } catch (error) {
-      console.error('Failed to load state from localStorage:', error);
-    }
+export function createStore<T extends object>(initialState: T, storeId: string): Store<T> {
+  if (stores[storeId]) {
+    throw new Error(`Store with id '${storeId}' already exists`);
   }
 
-  const getState = (): T => {
-    return state;
+  const store: Partial<Store<T>> = {};
+
+  for (const key in initialState) {
+    const [getter, setter] = useState(initialState[key], `${storeId}_${key}`);
+    store[key] = [getter, setter];
   }
 
-  const setState = (newState: Partial<T> | ((prevState: T) => Partial<T>)) => {
-    const nextState = typeof newState === 'function'
-      ? newState(state)
-      : newState;
-    
-    state = { ...state, ...nextState };
-    
-    if (storageKey) {
-      try {
-        localStorage.setItem(storageKey, JSON.stringify(state));
-      } catch (error) {
-        console.error('Failed to save state to localStorage:', error);
-      }
-    }
-    listeners.forEach(listener => listener());
-  }
-
-  const subscribe = (listener: () => void) => {
-    listeners.add(listener);
-    return () => {
-      listeners.delete(listener);
-    };
-  }
-
-  return { getState, setState, subscribe };
+  stores[storeId] = store as Store<T>;
+  return store as Store<T>;
 }
 
-export const useStore = <T extends object, K extends keyof T>(
-  store: ReturnType<typeof createStore<T>>,
-  selector: K
-): [() => T[K], (newValue: T[K]) => void] => {
-  const [, forceUpdate] = useState({});
-
-  const getValue = () => {
-    if (currentSubscriber) {
-      store.subscribe(() => forceUpdate({}));
-    }
-    return store.getState()[selector];
-  };
-
-  const setValue = (newValue: T[K]) => {
-    store.setState((prevState: T) => ({
-      ...prevState,
-      [selector]: newValue
-    }));
-  };
-
-  return [getValue, setValue];
+export function useStore<T, K extends keyof T>(store: Store<T>, key: K): [() => T[K], (newValue: T[K]) => void] {
+  return store[key];
 }

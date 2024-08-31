@@ -12,6 +12,7 @@ export const serverFetch = edenFetch<App>('http://localhost:3000/api')
 // export const serverFetch = edenFetch<App>(`${config.server.url}/api`)
 
 export * from '../state'
+// export * from '../state/store'
 export * from '../client'
 export * from '../lifecycle'
 

@@ -18,6 +18,7 @@
     "./client": "./dist/src/client/index.js",
     "./api": "./dist/src/api/index.js",
     "./state": "./dist/src/state/index.js",
+    "./store": "./dist/src/state/store.js",
     "./jsx-runtime": "./dist/src/jsx/index.js",
     "./jsx-dev-runtime": "./dist/src/jsx/index.js"
   },
