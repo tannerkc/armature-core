@@ -32,8 +32,7 @@ const app = new Elysia()
           bearer: auth?.startsWith('Bearer ') ? auth.slice(7) : null
       };
   })
-
-  app.group('api', (app) => {
+  .group('api', (app) => {
     // TODO: consider refactor lazy loaded modules
     // TODO: fix Elysia Eden type safety
     for (const [routePath, handlers] of apiMap.entries()) {

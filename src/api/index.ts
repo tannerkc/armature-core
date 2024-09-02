@@ -1,6 +1,7 @@
 export * from 'bun:sqlite'
 import type { JWTOption } from '@elysiajs/jwt'
 export { t } from 'elysia'
+export { type App } from '../server'
 
 let jwtConfig = {}
 export const configureJWT = (config: { name: string, secret: string }) => {

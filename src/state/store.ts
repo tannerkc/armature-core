@@ -1,16 +1,20 @@
 import { useState } from ".";
 
-// type Action<T> = { type: string, payload?: T[keyof T] };
-// export type Reducer<T> = (state: T, action: Action<T>) => T;
-
-type Action<T> = { type: string, payload?: any };
-export type Reducer<S, A> = (state: S, action: A) => S;
+export type Action = { type: string; payload?: any };
+export type Reducer<S, A extends Action = Action> = (state: S, action: A) => S;
 
 export type Store<T> = {
-    [K in keyof T]: [() => T[K], (newValue: T[K]) => void];
+    [K in keyof T]: [(() => T[Extract<keyof T, string>]) & { map: Function; condition: Function; }, (newValue: T[keyof T]) => void]
+} & {
+    use: (middlewareOrReducer: Middleware<T> | Reducer<T, any>) => void;
+    dispatch: (action: Action) => void;
 };
 
-type Middleware<T> = (store: Store<T>, key: keyof T, action: (newValue: T[keyof T]) => void) => (newValue: T[keyof T]) => void;
+type Middleware<T> = (
+    store: Omit<Store<T>, 'use' | 'dispatch'>,
+    key: keyof T,
+    next: (newValue: T[keyof T]) => void
+) => (newValue: T[keyof T]) => void;
 
 const stores: Record<string, Store<any>> = {};
 const globalMiddlewares: Middleware<any>[] = [];
@@ -19,31 +23,30 @@ export const use = (middleware: Middleware<any>) => {
   globalMiddlewares.push(middleware);
 }
 
-export function createStore<T extends object, A>(
+export function createStore<T extends object>(
     initialState: T, 
-    storeId: string, 
-    storeSpecificMiddleware: Middleware<T>[] = [], 
-    reducer?: Reducer<T, A>
-  ): Store<T> & { dispatch: (action: A) => void } {
+    storeId: string
+): Store<T> {
     if (stores[storeId]) {
       throw new Error(`Store with id '${storeId}' already exists`);
     }
   
-    const store: Store<T> = {} as Store<T>;
-    const allMiddlewares = [...globalMiddlewares, ...storeSpecificMiddleware];
+    const store = {} as Store<T>;
+    let storeMiddlewares: Middleware<T>[] = [];
+    let reducer: Reducer<T, any> | undefined;
   
     let currentState = initialState;
   
-    const dispatch = (action: A) => {
+    const dispatch = (action: Action) => {
       if (!reducer) {
         throw new Error(`No reducer provided for store '${storeId}'`);
       }
-  
+
       const newState = reducer(currentState, action);
       
       for (const key in newState) {
         if (newState[key] !== currentState[key]) {
-          const setter = store[key]?.[1];
+          const setter = (store[key as keyof T] as [any, (newValue: any) => void])[1];
           setter && setter(newState[key]);
         }
       }
@@ -55,34 +58,48 @@ export function createStore<T extends object, A>(
       const [getter, setter] = useState(initialState[key], `${storeId}_${key}`);
       
       const enhancedSetter = (newValue: T[keyof T]) => {
-        let dispatch = setter;
-        allMiddlewares.forEach(mw => {
-          dispatch = mw(store as Store<T>, key, dispatch as any);
+        let dispatch: (newValue: T[any]) => void = setter;
+        [...globalMiddlewares, ...storeMiddlewares].forEach(mw => {
+          dispatch = mw(store, key, dispatch);
         });
-        dispatch(newValue as any);
+        dispatch(newValue);
       };
-  
-      store[key] = [getter, enhancedSetter];
+
+      (store[key as keyof T] as any) = [getter, enhancedSetter]
     }
+
+    store.use = (middlewareOrReducer: Middleware<T> | Reducer<T, any>) => {
+      if (typeof middlewareOrReducer === 'function' && middlewareOrReducer.length === 2) {
+        reducer = middlewareOrReducer as Reducer<T, any>;
+      } else {
+        storeMiddlewares.push(middlewareOrReducer as Middleware<T>);
+      }
+    };
+  
+    store.dispatch = dispatch;
   
     stores[storeId] = store;
   
-    return { ...store, dispatch };
+    return store;
 }
 
-// export const useStore = <T, K extends keyof T>(store: Store<T>, key: K): [() => T[K], (newValue: T[K]) => void] => {
-//   return store[key];
-// }
-
-export function useStore<T, K extends Exclude<keyof T, 'dispatch'>>(
+export const useStore = <T, K extends Exclude<keyof T, 'dispatch' | 'use'>>(
     store: Store<T>,
     key: K
-): [() => T[K], (newValue: T[K]) => void] {
+): Store<T>[keyof T] => {
     return store[key];
 }
-  
 
 export const loggerMiddleware: Middleware<any> = (store, key, next) => (newValue) => {
-  console.log(`Key '${key.toString()}' updated with value:`, newValue);
+  console.log(`Key '${String(key)}' updated with value:`, newValue);
   next(newValue);
+};
+
+export const thunkMiddleware: Middleware<any> = (store, key, next) => {
+    return (action) => {
+      if (typeof action === 'function') {
+        return action(store.dispatch, store.getState);
+      }
+      return next(action);
+    };
 };

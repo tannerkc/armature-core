@@ -1,9 +1,6 @@
 import { generateUniqueId } from "../utils/generateId";
 
 type Reducer<S, A> = (state: S, action: A) => S;
-type Store<T> = {
-  [K in keyof T]: [() => T[K], (newValue: T[K]) => void];
-};
 
 let currentSubscriber: Function | null = null;
 
@@ -184,25 +181,3 @@ export const useEffect = (effect: () => void | (() => void), signals?: (() => an
 
   runEffect();
 };
-
-const stores: Record<string, Store<any>> = {};
-
-// export function createStore<T extends object>(initialState: T, storeId: string): Store<T> {
-//   if (stores[storeId]) {
-//     throw new Error(`Store with id '${storeId}' already exists`);
-//   }
-
-//   const store: Partial<Store<T>> = {};
-
-//   for (const key in initialState) {
-//     const [getter, setter] = useState(initialState[key], `${storeId}_${key}`);
-//     store[key] = [getter, setter];
-//   }
-
-//   stores[storeId] = store as Store<T>;
-//   return store as Store<T>;
-// }
-
-// export function useStore<T, K extends keyof T>(store: Store<T>, key: K): [() => T[K], (newValue: T[K]) => void] {
-//   return store[key];
-// }
